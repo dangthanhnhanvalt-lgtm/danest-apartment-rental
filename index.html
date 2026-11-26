@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en" id="capture-target">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>DaNest — Monthly Apartments in Da Nang for International Residents</title>
+    <meta name="description" content="Discover verified monthly apartments in Da Nang for expats, digital nomads and international professionals. Transparent rental costs, honest verification and easy English communication." />
+    <meta property="og:title" content="DaNest — Find Your Home in Da Nang" />
+    <meta property="og:description" content="Verified monthly apartments in Da Nang with transparent rental costs." />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#172C3D" />
+    <script>
+      (function () {
+        const HIGHLIGHT_ID = "__paletto_visual_edit_highlight__";
+        const MESSAGES = {
+          ENABLE: "paletto:visual-edit:enable",
+          DISABLE: "paletto:visual-edit:disable",
+          ELEMENT_CLICKED: "paletto:visual-edit:element-clicked",
+        };
+
+        let isEnabled = false;
+        let highlightEl = null;
+        let hoveredElement = null;
+
+        function createHighlight() {
+          if (highlightEl) return highlightEl;
+          highlightEl = document.createElement("div");
+          highlightEl.id = HIGHLIGHT_ID;
+          highlightEl.style.cssText = `
+      position: fixed;
+      pointer-events: none;
+      border: 2px solid #3b82f6;
+      background-color: rgba(59, 130, 246, 0.1);
+      z-index: 999999;
+      display: none;
+      transition: all 0.05s ease-out;
+    `;
+          document.body.appendChild(highlightEl);
+          return highlightEl;
+        }
+
+        function removeHighlight() {
+          if (highlightEl) {
+            highlightEl.remove();
+            highlightEl = null;
+          }
+        }
+
+        function handleMouseMove(e) {
+          if (!isEnabled || !highlightEl) return;
+
+          const target = e.target;
+          if (
+            target.id === HIGHLIGHT_ID ||
+            target === document.documentElement ||
+            target === document.body
+          ) {
+            highlightEl.style.display = "none";
+            hoveredElement = null;
+            return;
+          }
+
+          if (hoveredElement === target) return;
+          hoveredElement = target;
+          const rect = target.getBoundingClientRect();
+          highlightEl.style.display = "block";
+          highlightEl.style.top = rect.top + "px";
+          highlightEl.style.left = rect.left + "px";
+          highlightEl.style.width = rect.width + "px";
+          highlightEl.style.height = rect.height + "px";
+        }
+
+        function handleMouseLeave() {
+          if (highlightEl) {
+            highlightEl.style.display = "none";
+          }
+          hoveredElement = null;
+        }
+        function handleClick(e) {
+          if (!isEnabled) return;
+          const target = e.target;
+
+          if (
+            target.id === HIGHLIGHT_ID ||
+            target === document.documentElement ||
+            target === document.body
+          ) {
+            return;
+          }
+
+          e.preventDefault();
+          e.stopPropagation();
+
+          const getSelectorPath = (el) => {
+            const path = [];
+            let current = el;
+            while (current && current !== document.body) {
+              let selector = current.tagName.toLowerCase();
+              if (current.classList.length > 0) {
+                const classList = Array.from(current.classList)
+                  .slice(0, 2)
+                  .join(".");
+                selector += `.${classList}`;
+              }
+              path.unshift(selector);
+              current = current.parentElement;
+            }
+            return path.join(" > ");
+          };
+
+          const getReactTree = (el) => {
+            const tree = [];
+            let current = el;
+            let lastComponentName = "";
+            while (current && current !== document.documentElement) {
+              const compName = current.getAttribute("data-codexit-component");
+              if (compName && compName !== lastComponentName) {
+                tree.unshift(compName);
+                lastComponentName = compName;
+              }
+              current = current.parentElement;
+            }
+
+            return tree.length > 0 ? `<${tree.join("> <")}>` : "N/A";
+          };
+          const getSourceInfo = (el) => {
+            let current = el;
+            while (current && current !== document.body) {
+              const source = current.getAttribute("data-codexit-source");
+              if (source) return source;
+              current = current.parentElement;
+            }
+            return "Unknown Source";
+          };
+          function getDistributedSummary(target, maxLength) {
+            const root =
+              typeof target === "string"
+                ? document.querySelector(target)
+                : target;
+
+            if (!root) return "";
+
+            const allElements = Array.from(root.querySelectorAll("*"));
+            const leafElements = allElements.filter((el) => {
+              const hasDirectText = Array.from(el.childNodes).some(
+                (node) =>
+                  node.nodeType === Node.TEXT_NODE &&
+                  node.textContent.trim().length > 0,
+              );
+              const isNotTechnical = ![
+                "SVG",
+                "PATH",
+                "BR",
+                "STYLE",
+                "SCRIPT",
+              ].includes(el.tagName);
+              return hasDirectText && isNotTechnical;
+            });
+
+            if (leafElements.length === 0) {
+              const text = target.textContent ?? "";
+              return text.substring(text, maxLength);
+            }
+
+            const perElementLimit = Math.max(
+              Math.floor(maxLength / leafElements.length),
+              10,
+            );
+
+            let result = leafElements
+              .map((el) => {
+                const tagName = el.tagName.toLowerCase();
+                let text = el.textContent.trim().replace(/\s+/g, " ");
+
+                if (text.length > perElementLimit) {
+                  text = text.substring(0, perElementLimit) + "...";
+                }
+
+                return text;
+              })
+              .join("|");
+
+            return result;
+          }
+          const rect = target.getBoundingClientRect();
+
+          window.parent.postMessage(
+            {
+              type: MESSAGES.ELEMENT_CLICKED,
+              payload: {
+                tagName: target.tagName.toLowerCase(),
+                classes: Array.from(target.classList).join(" "),
+                location: getSelectorPath(target),
+                source: getSourceInfo(target),
+                reactTree: getReactTree(target),
+                content: getDistributedSummary(target, 200),
+                position: {
+                  x: Math.round(rect.left),
+                  y: Math.round(rect.top),
+                  width: Math.round(rect.width),
+                  height: Math.round(rect.height),
+                  label: `${Math.round(rect.left)}, ${Math.round(rect.top)} (${Math.round(rect.width)}x${Math.round(rect.height)})`,
+                },
+              },
+            },
+            "*",
+          );
+        }
+        function enable() {
+          if (isEnabled) return;
+          isEnabled = true;
+          createHighlight();
+          document.addEventListener("mousemove", handleMouseMove, true);
+          document.addEventListener("mouseleave", handleMouseLeave, true);
+          document.addEventListener("click", handleClick, true);
+          document.body.style.cursor = "crosshair";
+        }
+
+        function disable() {
+          if (!isEnabled) return;
+          isEnabled = false;
+          removeHighlight();
+          document.removeEventListener("mousemove", handleMouseMove, true);
+          document.removeEventListener("mouseleave", handleMouseLeave, true);
+          document.removeEventListener("click", handleClick, true);
+          document.body.style.cursor = "";
+          hoveredElement = null;
+        }
+
+        window.addEventListener("message", function (event) {
+          const { type } = event.data || {};
+          if (type === MESSAGES.ENABLE) {
+            enable();
+          } else if (type === MESSAGES.DISABLE) {
+            disable();
+          }
+        });
+      })();
+    </script>
+    <script>
+      // THIS SCRIPT IS FOR CATCHING RUNTIME ERRORS
+      // DOES NOT REMOVE
+      (function() {
+        var RUNTIME_ERROR_TYPE = 'paletto:runtime-error';
+        var errorQueue = [];
+        var MAX_ERRORS = 20;
+        var DEBOUNCE_MS = 500;
+        var debounceTimer = null;
+
+        function sendErrors() {
+          if (errorQueue.length === 0) return;
+          var errors = errorQueue.splice(0, MAX_ERRORS);
+          try {
+            window.parent.postMessage({
+              type: RUNTIME_ERROR_TYPE,
+              payload: { errors: errors }
+            }, '*');
+          } catch (e) { /* ignore */ }
+        }
+
+        function queueError(err) {
+          errorQueue.push(err);
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(sendErrors, DEBOUNCE_MS);
+        }
+
+        // Catch uncaught errors
+        window.addEventListener('error', function(e) {
+          // Ignore errors from extensions or cross-origin scripts
+          if (!e.filename || e.filename === '') return;
+          queueError({
+            type: 'error',
+            message: e.message || String(e.error),
+            source: e.filename,
+            line: e.lineno,
+            column: e.colno,
+            stack: e.error && e.error.stack ? e.error.stack : null
+          });
+        });
+
+        // Catch unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = e.reason;
+          queueError({
+            type: 'unhandledrejection',
+            message: reason && reason.message ? reason.message : String(reason),
+            stack: reason && reason.stack ? reason.stack : null
+          });
+        });
+
+        // Intercept console.error to catch React/library errors
+        var origConsoleError = console.error;
+        console.error = function() {
+          origConsoleError.apply(console, arguments);
+          var msg = Array.prototype.map.call(arguments, function(a) {
+            if (a instanceof Error) return a.message + (a.stack ? '\n' + a.stack : '');
+            if (typeof a === 'object') { try { return JSON.stringify(a); } catch(e) { return String(a); } }
+            return String(a);
+          }).join(' ');
+          queueError({
+            type: 'console.error',
+            message: msg
+          });
+        };
+      })();
+    </script>
+    <script>
+      // PALETTO NAVIGATION BROADCASTER — posts current path to parent on SPA navigation.
+      (function () {
+        var NAV_TYPE = "paletto:navigation:change";
+        var lastPath = "";
+
+        function currentPath() {
+          return (location.pathname || "/") + (location.search || "") + (location.hash || "");
+        }
+
+        function broadcast() {
+          var p = currentPath();
+          if (p === lastPath) return;
+          lastPath = p;
+          try {
+            window.parent.postMessage({ type: NAV_TYPE, payload: { path: p } }, "*");
+          } catch (e) {
+            /* ignore */
+          }
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", broadcast);
+        } else {
+          setTimeout(broadcast, 0);
+        }
+
+        window.addEventListener("popstate", broadcast);
+        window.addEventListener("hashchange", broadcast);
+
+        var origPush = history.pushState;
+        var origReplace = history.replaceState;
+        history.pushState = function () {
+          var ret = origPush.apply(this, arguments);
+          broadcast();
+          return ret;
+        };
+        history.replaceState = function () {
+          var ret = origReplace.apply(this, arguments);
+          broadcast();
+          return ret;
+        };
+
+        // Inbound: parent path bar requesting SPA navigation
+        var REQ_TYPE = "paletto:navigation:request";
+        window.addEventListener("message", function (event) {
+          var data = event.data || {};
+          if (data.type !== REQ_TYPE) return;
+          var path = data.payload && data.payload.path;
+          if (typeof path !== "string" || !path) return;
+          try {
+            history.pushState({}, "", path);
+            window.dispatchEvent(new PopStateEvent("popstate"));
+            broadcast();
+          } catch (e) {
+            try { location.href = path; } catch (err) { /* ignore */ }
+          }
+        });
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  <!-- paletto-badge:start --><style id="paletto-badge-style">.paletto-badge-wrap{position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important;display:inline-flex!important;align-items:center!important;margin:0!important;padding:0!important;animation:paletto-badge-size 1.7s ease-in-out 3!important;}@keyframes paletto-badge-size{0%,100%{transform:scale(1);}50%{transform:scale(.93);}}.paletto-badge{display:inline-flex!important;align-items:center!important;gap:9px!important;margin:0!important;padding:10px 17px!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif!important;font-size:15px!important;line-height:1!important;font-weight:600!important;letter-spacing:.01em!important;text-decoration:none!important;white-space:nowrap!important;border-radius:9999px!important;background:rgba(17,18,23,.84)!important;-webkit-backdrop-filter:blur(14px) saturate(160%)!important;backdrop-filter:blur(14px) saturate(160%)!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:0 6px 22px rgba(0,0,0,.34),inset 0 0 0 1px rgba(255,255,255,.06)!important;opacity:1!important;cursor:pointer!important;transition:transform .18s ease,box-shadow .18s ease,opacity .18s ease!important;}.paletto-badge:hover{opacity:1!important;box-shadow:0 10px 30px rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.1)!important;}.paletto-badge svg{display:block!important;flex:none!important;}.paletto-badge .pb-made{color:#d6dbe4!important;font-weight:600!important;}.paletto-badge .pb-name{font-weight:700!important;background:linear-gradient(90deg,#5ED6C4,#C2E05E,#F2CB4F)!important;-webkit-background-clip:text!important;background-clip:text!important;-webkit-text-fill-color:transparent!important;color:transparent!important;}.paletto-badge-x{position:absolute!important;top:-7px!important;right:-5px!important;width:20px!important;height:20px!important;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif!important;font-size:13px!important;line-height:1!important;font-weight:700!important;color:#e6e9ef!important;background:rgba(17,18,23,.94)!important;border:1px solid rgba(255,255,255,.22)!important;border-radius:9999px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;cursor:pointer!important;-webkit-appearance:none!important;appearance:none!important;transition:background .15s ease,color .15s ease!important;}.paletto-badge-x:hover{background:rgba(40,42,52,.98)!important;color:#fff!important;}@media (prefers-reduced-motion:reduce){.paletto-badge-wrap{animation:none!important;}.paletto-badge,.paletto-badge:hover,.paletto-badge-x{transition:none!important;transform:none!important;}}@media print{.paletto-badge-wrap{display:none!important;}}</style><div class="paletto-badge-wrap" style="display:inline-flex!important;visibility:visible!important;opacity:1!important;position:fixed!important;right:16px!important;bottom:16px!important;margin:0!important;inset-block-start:auto!important;inset-inline-start:auto!important;z-index:2147483647!important;pointer-events:auto!important;filter:none!important;backdrop-filter:none!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;content-visibility:visible!important;scale:none!important;translate:none!important;rotate:none!important;mix-blend-mode:normal!important;zoom:1!important;overflow:visible!important;clip:auto!important;contain:none!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;" data-paletto-badge="1"><a class="paletto-badge" style="display:inline-flex!important;visibility:visible!important;opacity:1!important;align-items:center!important;gap:9px!important;padding:10px 17px!important;font-size:15px!important;line-height:1!important;font-weight:600!important;text-indent:0!important;letter-spacing:.01em!important;text-decoration:none!important;background:rgba(17,18,23,.84)!important;border-radius:9999px!important;transform:none!important;pointer-events:auto!important;filter:none!important;backdrop-filter:none!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;content-visibility:visible!important;scale:none!important;translate:none!important;rotate:none!important;mix-blend-mode:normal!important;zoom:1!important;overflow:visible!important;clip:auto!important;contain:none!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;" href="https://paletto.sh" target="_blank" rel="noopener noreferrer nofollow" aria-label="Made with Paletto"><svg width="19" height="19" viewBox="0 0 32 32" fill="none" style="display:block!important;visibility:visible!important;opacity:1!important;width:19px!important;height:19px!important;flex:none!important;min-width:19px!important;min-height:19px!important;max-width:19px!important;max-height:19px!important;filter:none!important;backdrop-filter:none!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;content-visibility:visible!important;scale:none!important;translate:none!important;rotate:none!important;mix-blend-mode:normal!important;zoom:1!important;overflow:visible!important;clip:auto!important;contain:none!important;" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="pbg" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5ED6C4"/><stop offset=".51" stop-color="#C2E05E"/><stop offset="1" stop-color="#F2CB4F"/></linearGradient></defs><path d="M10 6h8.5a7.5 7.5 0 010 15H14v5.5a2 2 0 01-4 0V8a2 2 0 012-2zm4 4v7h4.5a3.5 3.5 0 000-7H14z" fill="url(#pbg)" fill-rule="evenodd" style="fill:url(#pbg)!important;display:inline!important;visibility:visible!important;opacity:1!important;"/></svg><span class="pb-made" style="display:inline!important;visibility:visible!important;opacity:1!important;font-size:15px!important;line-height:1!important;text-indent:0!important;filter:none!important;backdrop-filter:none!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;content-visibility:visible!important;scale:none!important;translate:none!important;rotate:none!important;mix-blend-mode:normal!important;zoom:1!important;overflow:visible!important;clip:auto!important;contain:none!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;color:#d6dbe4!important;-webkit-text-fill-color:#d6dbe4!important;font-weight:600!important;">Made with</span><span class="pb-name" style="display:inline!important;visibility:visible!important;opacity:1!important;font-size:15px!important;line-height:1!important;text-indent:0!important;filter:none!important;backdrop-filter:none!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;content-visibility:visible!important;scale:none!important;translate:none!important;rotate:none!important;mix-blend-mode:normal!important;zoom:1!important;overflow:visible!important;clip:auto!important;contain:none!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;font-weight:700!important;background:linear-gradient(90deg,#5ED6C4,#C2E05E,#F2CB4F)!important;-webkit-background-clip:text!important;background-clip:text!important;-webkit-text-fill-color:transparent!important;color:transparent!important;">Paletto</span></a><button class="paletto-badge-x" type="button" aria-label="Hide the Paletto badge for this page" title="Hide" onclick="this.parentNode.remove()">&times;</button></div><script>(function(){
+var d=document,s=d.currentScript,w=s&&s.previousElementSibling;
+if(!w||w.className!=="paletto-badge-wrap")w=d.querySelector(".paletto-badge-wrap");
+if(!w||!w.parentNode)return;
+var sty=d.getElementById("paletto-badge-style");
+var ref=w.outerHTML,tpl=w.cloneNode(true),css=sty?sty.cloneNode(true):null;
+var wrapStyle=w.getAttribute("style"),an=w.querySelector(".paletto-badge");
+var anchorStyle=an?an.getAttribute("style"):null;
+var pin=wrapStyle+"transform:none!important;";
+var probe=w.cloneNode(true);probe.setAttribute("style",pin);var refFb=probe.outerHTML;
+var shadow=!!(window.Element&&Element.prototype.attachShadow);
+try{if(shadow&&Function.prototype.toString.call(Element.prototype.attachShadow)
+.indexOf("[native code]")<0)shadow=false;}catch(e){shadow=false;}
+var host=null,inner=null,cls="",expect="",refCur=ref,cssLive=null;
+var off=false,obs=null,queued=false,hits=0,win=0,cov=0,covWin=0,iv=0,ivSheet=0,sheet=null;
+function tok(){var r=null;
+try{r=window.crypto&&window.crypto.getRandomValues?window.crypto.getRandomValues(new Uint8Array(24)):null;}catch(e){}
+function b(i){return r?r[i]:Math.floor(Math.random()*256);}
+var n=10+b(0)%7,o=String.fromCharCode(97+b(1)%26),i=2;
+for(;i<n+2;i++)o+=(b(i)%36).toString(36);return o;}
+function put(p,c){try{p.appendChild(c);}catch(e){}if(p.contains(c))return;
+try{p.insertBefore(c,null);}catch(e){}if(p.contains(c))return;
+try{p.replaceChildren.call(p,c);}catch(e){}}
+function build(){
+inner=tpl.cloneNode(true);
+inner.setAttribute("style",wrapStyle);
+var a=inner.querySelector(".paletto-badge");
+if(a&&anchorStyle)a.setAttribute("style",anchorStyle);
+var x=inner.querySelector(".paletto-badge-x");
+if(x)x.addEventListener("click",function(e){if(e.isTrusted)stop();});
+if(shadow){try{
+var h=d.createElement("div");cls=tok();expect=pin;refCur=ref;h.className=cls;h.setAttribute("style",pin);
+var root=h.attachShadow({mode:"closed"});
+if(css)put(root,css.cloneNode(true));
+put(root,inner);
+if(root.contains(inner))return h;
+}catch(e){}shadow=false;}
+cls="paletto-badge-wrap";expect=pin;refCur=refFb;inner.setAttribute("style",pin);
+if(css&&!d.getElementById("paletto-badge-style")){cssLive=css.cloneNode(true);
+put(d.head||d.documentElement,cssLive);}
+return inner;}
+function present(deep){return !!host&&host.isConnected&&host.className===cls&&
+host.getAttribute("style")===expect&&!!inner&&inner.isConnected&&
+(!deep||inner.outerHTML===refCur);}
+function covered(){try{var r=inner.getBoundingClientRect();
+if(!r.width||!r.height)return false;
+var hit=d.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+return !!hit&&hit!==host&&!host.contains(hit);}catch(e){return false;}}
+function place(){
+if(host&&host.parentNode)host.parentNode.removeChild(host);
+host=build();put(d.body||d.documentElement,host);}
+function escalate(){
+if(sheet)return true;
+try{if(typeof CSSStyleSheet==="undefined"||!("adoptedStyleSheets" in d))return false;
+var sh=new CSSStyleSheet();sh.replaceSync("html:not(#pb0):not(#pb1):not(#pb2):not(#pb3):not(#pb4)::after{content:'Made with Paletto'!important;position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important;display:inline-flex!important;align-items:center!important;padding:10px 17px!important;font:600 15px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif!important;color:#d6dbe4!important;background:rgba(17,18,23,.94)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:9999px!important;box-shadow:0 6px 22px rgba(0,0,0,.34)!important;pointer-events:none!important;visibility:visible!important;opacity:1!important;transform:none!important;filter:none!important;clip-path:none!important;content-visibility:visible!important;width:auto!important;height:auto!important;overflow:visible!important;}@media print{html:not(#pb0):not(#pb1):not(#pb2):not(#pb3):not(#pb4)::after{content:none!important;}}");
+d.adoptedStyleSheets=(d.adoptedStyleSheets||[]).concat(sh);sheet=sh;
+if(!ivSheet)ivSheet=setInterval(keepSheet,200);
+if(host&&host.parentNode)host.parentNode.removeChild(host);host=null;inner=null;
+return true;}catch(e){return false;}}
+function keepSheet(){if(off||!sheet)return;try{var a=d.adoptedStyleSheets||[];
+if(a.indexOf(sheet)<0)d.adoptedStyleSheets=a.concat(sheet);}catch(e){}}
+function check(deep){
+if(off)return;
+if(sheet){keepSheet();return;}
+if(present(deep)){
+if(!deep||!covered())return;
+var c=Date.now();if(c-covWin>3000){covWin=c;cov=0;}
+if(++cov>10&&escalate())return;
+place();return;}
+var t=Date.now();if(t-win>3000){win=t;hits=0;}
+if(++hits>30&&escalate())return;
+place();}
+function tick(deep){if(!deep)queued=false;try{check(deep);}catch(e){}}
+function frame(){tick(false);}
+function beat(){tick(true);}
+function schedule(){if(off||queued)return;queued=true;
+if(window.requestAnimationFrame)window.requestAnimationFrame(frame);else setTimeout(frame,16);}
+function stop(){off=true;if(obs){obs.disconnect();obs=null;}if(iv){clearInterval(iv);iv=0;}
+if(ivSheet){clearInterval(ivSheet);ivSheet=0;}
+if(sheet){try{var a=d.adoptedStyleSheets||[];
+d.adoptedStyleSheets=a.filter(function(x){return x!==sheet;});}catch(e){}sheet=null;}
+if(host&&host.parentNode)host.parentNode.removeChild(host);host=null;inner=null;}
+try{place();}catch(e){return;}
+if(w.parentNode)w.parentNode.removeChild(w);
+if(shadow&&sty&&sty.parentNode)sty.parentNode.removeChild(sty);
+try{obs=new MutationObserver(schedule);obs.observe(d.documentElement,{childList:true,subtree:true});}catch(e){}
+iv=setInterval(beat,2000);
+})();</script><!-- paletto-badge:end --></body>
+</html>

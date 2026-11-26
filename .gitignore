@@ -1,0 +1,56 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+public/thumbnail.png
+
+# Paletto agent + Backend Hub server-side artifacts.
+# .paletto: server-only credentials (.paletto/baas.env, chmod 600). NEVER commit.
+# .paletto-agent: agent skill files materialized at runtime, not source code.
+.paletto/
+.paletto-agent/
+
+# pnpm in-container installs fall back to a project-local store (bind-mounted
+# project sits on a different filesystem than the default store); tens of
+# thousands of files here must never enter git status or agent snapshots.
+.pnpm-store/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local files
+*.log
+.DS_Store
+
+# Database backups - do not publish
+db/baas/backups/
+
+db/baas/backups/

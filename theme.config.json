@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "theme": {
+    "id": "real-estate",
+    "type": "industry-preset",
+    "locked": true
+  },
+  "brand": "#172C3D",
+  "page": "#F7F5F0",
+  "text": "none",
+  "lang": "en",
+  "fonts": {
+    "heading": "Cormorant Garamond",
+    "body": "Manrope"
+  },
+  "scale": "default",
+  "mode": "default",
+  "second": "#829987",
+  "third": "#D9CBB8",
+  "bands": "none",
+  "metadata": {
+    "detectedAt": "2026-11-12T04:35:31Z",
+    "detectedFrom": ""
+  }
+}
