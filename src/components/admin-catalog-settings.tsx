@@ -1,0 +1,38 @@
+import { useState, useEffect, type FormEvent } from "react";
+import { useCatalog, type RequiredField } from "~/state/catalog";
+import { useI18n } from "~/i18n/language-context";
+import { supabase } from "~/lib/supabase";
+import { Button } from "~/components/ui/button";
+import { Field, Input, Select } from "~/components/ui/form";
+import { Card, CardTitle } from "~/pages/admin/shared";
+const fields:RequiredField[]=["floorLevel","amenities","rentalNotes"];
+type Kind="neighborhood"|"amenity";
+export function AdminCatalogSettings(){
+ const {pick}=useI18n();const catalog=useCatalog();
+ const [kind,setKind]=useState<Kind>("neighborhood");const [id,setId]=useState("");const [existing,setExisting]=useState(false);
+ const [en,setEn]=useState("");const [vi,setVi]=useState("");const [lat,setLat]=useState("");const [lng,setLng]=useState("");const [active,setActive]=useState(true);const [reason,setReason]=useState("");
+ const [required,setRequired]=useState<RequiredField[]>(catalog.required);const [requiredReason,setRequiredReason]=useState("");const [busy,setBusy]=useState(false);const [msg,setMsg]=useState("");const [error,setError]=useState("");
+ useEffect(()=>setRequired(catalog.required),[catalog.required]);
+ const reset=(next:Kind)=>{setKind(next);setId("");setEn("");setVi("");setLat("");setLng("");setActive(true);setExisting(false);setReason("");setMsg("");setError("");};
+ const rows=kind==="neighborhood"?catalog.areas.map(a=>({id:a.id,en:a.name,vi:a.name_vi??a.name,lat:String(a.lat),lng:String(a.lng),active:a.active})):catalog.amenities.map(a=>({id:a.id,en:a.label,vi:a.label_vi??a.label,lat:"",lng:"",active:a.active}));
+ const select=(value:string)=>{if(!value){reset(kind);return;}const row=rows.find(r=>r.id===value);if(!row)return;setExisting(true);setId(row.id);setEn(row.en);setVi(row.vi);setLat(row.lat);setLng(row.lng);setActive(row.active);setReason("");setError("");setMsg("");};
+ const save=async(e:FormEvent)=>{e.preventDefault();setError("");setMsg("");if(!existing&&rows.some(r=>r.id===id.trim())){setError(pick("ID already exists; select it to edit.","Mã đã tồn tại; chọn mục để sửa."));return;}setBusy(true);try{const {error}=await supabase.rpc("danest_save_catalog_10a11",{p_kind:kind,p_id:id.trim(),p_en:en.trim(),p_vi:vi.trim(),p_active:active,p_lat:kind==="neighborhood"?Number(lat):null,p_lng:kind==="neighborhood"?Number(lng):null,p_reason:reason.trim()});if(error)throw new Error(error.message);setExisting(true);setReason("");await catalog.refresh();setMsg(pick("Saved. Refresh other open tabs to see the changes.","Đã lưu. Tải lại các tab khác để thấy thay đổi."));}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}};
+ const saveFields=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError("");setMsg("");try{const {error}=await supabase.rpc("danest_save_required_10a11",{p_fields:required,p_reason:requiredReason.trim()});if(error)throw new Error(error.message);setRequiredReason("");await catalog.refresh();setMsg(pick("Required fields saved.","Đã lưu trường bắt buộc."));}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}};
+ const label=(f:RequiredField)=>f==="floorLevel"?pick("Floor / level","Tầng"):f==="amenities"?pick("At least one amenity","Ít nhất một tiện ích"):pick("Rental conditions","Điều kiện thuê");
+ return <Card className="space-y-4"><CardTitle>{pick("Catalog & required fields","Danh mục và trường bắt buộc")}</CardTitle>
+ <p className="text-sm text-muted-foreground">{pick("Inactive items remain on historical listings. IDs are permanent. Changes affect new selections, not existing published listings.","Danh mục ngừng sử dụng vẫn được giữ trên tin cũ. Mã không thay đổi. Cấu hình áp dụng cho lựa chọn mới, không tự sửa tin đã công khai.")}</p>
+ {!catalog.ready&&<div role="alert" className="text-sm text-destructive">{catalog.error||pick("Loading catalog…","Đang tải danh mục…")} <Button size="sm" variant="outline" onClick={()=>void catalog.refresh()}>{pick("Retry","Thử lại")}</Button></div>}
+ <div className="grid gap-5 lg:grid-cols-2"><form className="space-y-3" onSubmit={save}><fieldset disabled={busy||!catalog.ready} className="space-y-3">
+ <Field label={pick("Catalog type","Loại danh mục")} htmlFor="catalog-kind"><Select id="catalog-kind" value={kind} onChange={e=>reset(e.target.value as Kind)}><option value="neighborhood">{pick("Neighborhoods","Khu vực")}</option><option value="amenity">{pick("Amenities","Tiện ích")}</option></Select></Field>
+ <Field label={pick("Select or add","Chọn hoặc thêm mới")} htmlFor="catalog-select"><Select id="catalog-select" value={existing?id:""} onChange={e=>select(e.target.value)}><option value="">{pick("Add new","Thêm mới")}</option>{rows.map(r=><option key={r.id} value={r.id}>{pick(r.en,r.vi)}{r.active?"":pick(" (inactive)"," (ngừng sử dụng)")}</option>)}</Select></Field>
+ <Field label="ID" htmlFor="catalog-id"><Input id="catalog-id" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={64} value={id} readOnly={existing} onChange={e=>setId(e.target.value)}/></Field>
+ <Field label={pick("English name","Tên tiếng Anh")} htmlFor="catalog-en"><Input id="catalog-en" required maxLength={100} value={en} onChange={e=>setEn(e.target.value)}/></Field>
+ <Field label={pick("Vietnamese name","Tên tiếng Việt")} htmlFor="catalog-vi"><Input id="catalog-vi" required maxLength={100} value={vi} onChange={e=>setVi(e.target.value)}/></Field>
+ {kind==="neighborhood"&&<div className="grid grid-cols-2 gap-2"><Field label={pick("Latitude","Vĩ độ")} htmlFor="catalog-lat"><Input id="catalog-lat" type="number" step="any" min={-90} max={90} required value={lat} onChange={e=>setLat(e.target.value)}/></Field><Field label={pick("Longitude","Kinh độ")} htmlFor="catalog-lng"><Input id="catalog-lng" type="number" step="any" min={-180} max={180} required value={lng} onChange={e=>setLng(e.target.value)}/></Field></div>}
+ <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/>{pick("Active for new selections","Cho phép lựa chọn mới")}</label>
+ <Field label={pick("Reason","Lý do")} htmlFor="catalog-reason"><Input id="catalog-reason" required maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></Field><Button type="submit" disabled={busy||!catalog.ready}>{pick("Save catalog item","Lưu danh mục")}</Button></fieldset></form>
+ <form className="space-y-3" onSubmit={saveFields}><fieldset disabled={busy||!catalog.ready} className="space-y-3"><h3 className="font-medium">{pick("Additional required fields","Trường bắt buộc bổ sung")}</h3><p className="text-sm text-muted-foreground">{pick("Core BRD fields cannot be disabled. These options apply on submission; drafts are allowed to omit them.","Không thể tắt trường cốt lõi của BRD. Tùy chọn này áp dụng lúc gửi duyệt; bản nháp có thể để trống.")}</p>
+ {fields.map(f=><label key={f} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={required.includes(f)} onChange={e=>setRequired(old=>e.target.checked?[...old,f]:old.filter(x=>x!==f))}/>{label(f)}</label>)}
+ <Field label={pick("Reason","Lý do")} htmlFor="required-reason"><Input id="required-reason" required maxLength={1000} value={requiredReason} onChange={e=>setRequiredReason(e.target.value)}/></Field><Button type="submit" disabled={busy||!catalog.ready}>{pick("Save required fields","Lưu trường bắt buộc")}</Button></fieldset></form></div>
+ {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}{msg&&<p role="status" className="text-sm text-foreground">{msg}</p>}</Card>;
+}

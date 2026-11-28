@@ -1,93 +1,31 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Expand } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, ImageOff } from "lucide-react";
 import { PhotoViewer } from "~/components/photos/photo-viewer";
-import { cn } from "~/lib/utils";
 import { useI18n } from "~/i18n/language-context";
 
 export function Gallery({ images, title }: { images: string[]; title: string }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const shots = images.length > 0 ? images : ["/images/l1.jpg"];
-  const multiple = shots.length > 1;
-  const altFor = (i: number) => `${title} — photo ${i + 1}`;
-
-  const openAt = (i: number) => {
-    setActive(i);
-    setOpen(true);
-  };
-
-  return (
-    <div>
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-muted" style={{ boxShadow: "var(--shadow-surface)" }}>
-        <div className="flex min-h-[280px] w-full items-center justify-center p-3 sm:min-h-[360px] sm:p-4">
-          <img
-            key={shots[active]}
-            src={shots[active]}
-            alt={altFor(active)}
-            className="h-auto w-auto max-w-full rounded-lg object-contain animate-in fade-in duration-300"
-            style={{ maxHeight: "min(72vh, 720px)" }}
-          />
-        </div>
-
-        {multiple ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setActive((a) => (a - 1 + shots.length) % shots.length)}
-              aria-label={t("aria.prevPhoto")}
-              className="absolute left-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-input bg-card text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ChevronLeft className="size-5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setActive((a) => (a + 1) % shots.length)}
-              aria-label={t("aria.nextPhoto")}
-              className="absolute right-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-input bg-card text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ChevronRight className="size-5" aria-hidden="true" />
-            </button>
-          </>
-        ) : null}
-
-        <span className="absolute bottom-3 left-3 rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-card-foreground shadow-sm">
-          {active + 1} / {shots.length}
-        </span>
-
-        <button
-          type="button"
-          onClick={() => openAt(active)}
-          className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-semibold text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Expand className="size-3.5" aria-hidden="true" />
-          View full screen
+  const { t, pick } = useI18n();
+  const [open,setOpen]=useState(false);
+  const [index,setIndex]=useState(0);
+  const shots=images.filter(Boolean);
+  const active=Math.min(index,Math.max(0,shots.length-1));
+  const openAt=(i:number)=>{setIndex(i);setOpen(true);};
+  const altFor=(i:number)=>`${title} — ${pick("photo","ảnh")} ${i+1}`;
+  const side=shots.map((src,i)=>({src,i})).filter(x=>x.i!==active).slice(0,4);
+  if(!shots.length)return <div className="flex min-h-56 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-muted text-muted-foreground"><ImageOff className="size-9" aria-hidden="true"/>{pick("No photos provided","Chưa có ảnh căn hộ")}</div>;
+  return <div className="danest-photo-gallery">
+    <div className={`grid gap-2 overflow-hidden rounded-2xl ${side.length>=2?"lg:grid-cols-[1.35fr_1fr]":""}`}>
+      <div className="relative overflow-hidden rounded-xl bg-muted">
+        <button type="button" onClick={()=>openAt(active)} aria-label={t("aria.openPhoto",{n:active+1})} className="block aspect-[4/3] w-full focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:aspect-auto lg:h-[440px]">
+          <img src={shots[active]} alt={altFor(active)} className="size-full object-cover"/>
         </button>
+        {shots.length>1&&<>{[-1,1].map(delta=><button key={delta} type="button" onClick={()=>setIndex((active+delta+shots.length)%shots.length)} aria-label={t(delta<0?"aria.prevPhoto":"aria.nextPhoto")} className={`absolute top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-foreground focus-visible:ring-2 focus-visible:ring-ring ${delta<0?"left-3":"right-3"}`}>{delta<0?<ChevronLeft aria-hidden="true"/>:<ChevronRight aria-hidden="true"/>}</button>)}</>}
+        <span className="absolute bottom-3 left-3 rounded-full bg-[#172C3D] px-3 py-1 text-xs font-semibold text-white">{active+1} / {shots.length}</span>
+        <button type="button" onClick={()=>openAt(active)} className="absolute bottom-3 right-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring"><Expand className="size-4" aria-hidden="true"/>{pick("All photos","Xem tất cả ảnh")}</button>
       </div>
-
-      {multiple ? (
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-          {shots.map((src, i) => (
-            <button
-              key={`${src}-thumb-${i}`}
-              type="button"
-              onClick={() => openAt(i)}
-              aria-label={t("aria.openPhoto", { n: i + 1 })}
-              aria-current={i === active}
-              className={cn(
-                "aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg bg-muted ring-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-24",
-                i === active ? "ring-primary-strong" : "ring-transparent hover:ring-border", "border border-input"
-              )}
-            >
-              <img src={src} alt="" className="size-full object-contain" loading="lazy" />
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {open ? (
-        <PhotoViewer images={shots} title={title} index={active} onIndex={setActive} onClose={() => setOpen(false)} />
-      ) : null}
+      {side.length>=2&&<div className="hidden h-[440px] grid-cols-2 auto-rows-fr gap-2 lg:grid">{side.map(({src,i})=><button key={i} type="button" onClick={()=>openAt(i)} aria-label={t("aria.openPhoto",{n:i+1})} className="relative min-h-0 overflow-hidden rounded-xl bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"><img src={src} alt={altFor(i)} className="size-full object-cover" loading="lazy"/></button>)}</div>}
     </div>
-  );
+    {shots.length>1&&<div className="mt-3 flex gap-2 overflow-x-auto pb-1">{shots.map((src,i)=><button key={i} type="button" onClick={()=>openAt(i)} aria-label={t("aria.openPhoto",{n:i+1})} aria-current={i===active} className={`aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:w-24 ${i===active?"border-primary":"border-transparent"}`}><img src={src} alt="" loading="lazy" className="size-full object-cover"/></button>)}</div>}
+    {open&&<PhotoViewer images={shots} title={title} index={active} onIndex={setIndex} onClose={()=>setOpen(false)}/>}
+  </div>;
 }

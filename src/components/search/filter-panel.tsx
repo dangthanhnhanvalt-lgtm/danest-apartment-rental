@@ -1,5 +1,4 @@
 import { Chip, Checkbox, Field, Input, Select } from "~/components/ui/form";
-import { AMENITIES } from "~/data/constants";
 import { useI18n } from "~/i18n/language-context";
 import { useLabels } from "~/i18n/use-labels";
 import { useState } from "react";
@@ -12,21 +11,23 @@ export function FilterPanel({
   onReset,
   collapsible = false,
   activeCount = 0,
+  hideHeading = false,
 }: {
   filters: Filters;
   onChange: (next: Filters) => void;
   onReset: () => void;
   collapsible?: boolean;
   activeCount?: number;
+  hideHeading?: boolean;
 }) {
   const labels = useLabels();
-  const { t } = useI18n();
+  const { t,pick } = useI18n();
   const [open, setOpen] = useState(!collapsible);
   const maxRentOptions = [400, 600, 800, 1000, 1500, 2000];
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {collapsible ? (
+    <div className="danest-filter-panel space-y-6">
+      <div className={`flex flex-wrap items-center justify-between gap-2 ${hideHeading ? "justify-end" : ""}`}>
+        {hideHeading ? null : collapsible ? (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -56,20 +57,20 @@ export function FilterPanel({
         </button>
       </div>
 
-      <div id="filter-fields" hidden={!open} className="space-y-6">
-      <fieldset className="space-y-2.5">
+      <div id="filter-fields" hidden={!open} className="danest-filter-fields space-y-5">
+      <fieldset className="danest-filter-group space-y-2.5">
         <legend className="mb-1 text-sm font-semibold text-foreground">{t("filter.neighborhood")}</legend>
-        {labels.neighborhoods.map((n) => (
+        {labels.allNeighborhoods.filter(n=>n.active||filters.neighborhoods.includes(n.id)).map((n) => (
           <Checkbox
             key={n.id}
-            label={n.name}
+            label={n.name+(n.active?"":pick(" (inactive)"," (ngừng sử dụng)"))}
             checked={filters.neighborhoods.includes(n.id)}
             onChange={() => onChange({ ...filters, neighborhoods: toggle(filters.neighborhoods, n.id) })}
           />
         ))}
       </fieldset>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="danest-filter-range grid grid-cols-2 gap-3">
         <Field label={t("filter.minRent")} htmlFor="filter-min-rent">
           <Input id="filter-min-rent" type="number" min={0} inputMode="numeric" value={filters.minRent} onChange={(e) => onChange({ ...filters, minRent: e.target.value })} placeholder="0" />
         </Field>
@@ -77,7 +78,7 @@ export function FilterPanel({
           <Input id="filter-max-rent" type="number" min={0} inputMode="numeric" value={filters.maxRent} onChange={(e) => onChange({ ...filters, maxRent: e.target.value })} placeholder={t("filter.any")} />
         </Field>
       </div>
-      <div className="flex flex-wrap gap-1.5" aria-label={t("filter.quickMax")}>
+      <div className="danest-filter-quick flex flex-wrap gap-1.5" aria-label={t("filter.quickMax")}>
         {maxRentOptions.map((v) => (
           <Chip key={v} selected={filters.maxRent === String(v)} onClick={() => onChange({ ...filters, maxRent: filters.maxRent === String(v) ? "" : String(v) })}>
             {t("filter.upTo", { amount: v })}
@@ -85,6 +86,17 @@ export function FilterPanel({
         ))}
       </div>
 
+      <div className="danest-filter-range grid grid-cols-2 gap-3">
+        <Field label={t("filter.minArea")} htmlFor="filter-min-area">
+          <Input id="filter-min-area" type="number" min={0} step="any" value={filters.minArea} onChange={e=>onChange({...filters,minArea:e.target.value})} placeholder="0" />
+        </Field>
+        <Field label={t("filter.maxArea")} htmlFor="filter-max-area">
+          <Input id="filter-max-area" type="number" min={0} step="any" value={filters.maxArea} onChange={e=>onChange({...filters,maxArea:e.target.value})} placeholder={t("filter.any")} />
+        </Field>
+      </div>
+      <Field label={t("filter.checkIn")} htmlFor="filter-check-in">
+        <Input id="filter-check-in" type="date" value={filters.checkIn} onChange={e=>onChange({...filters,checkIn:e.target.value})} />
+      </Field>
       <Field label={t("filter.duration")} htmlFor="filter-duration">
         <Select id="filter-duration" value={filters.duration} onChange={(e) => onChange({ ...filters, duration: e.target.value })}>
           <option value="">{t("filter.anyDuration")}</option>
@@ -118,7 +130,7 @@ export function FilterPanel({
         </div>
       </div>
 
-      <fieldset className="space-y-2.5">
+      <fieldset className="danest-filter-group space-y-2.5">
         <legend className="mb-1 text-sm font-semibold text-foreground">{t("filter.apartmentType")}</legend>
         {TYPE_KEYS.map((t) => (
           <Checkbox
@@ -139,13 +151,13 @@ export function FilterPanel({
         </Select>
       </Field>
 
-      <fieldset>
+      <fieldset className="danest-filter-group">
         <legend className="mb-2 text-sm font-semibold text-foreground">{t("filter.amenities")}</legend>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-          {AMENITIES.map((a) => (
+        <div className="danest-amenities-grid grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {labels.allAmenities.filter(a=>a.active||filters.amenities.includes(a.id)).map((a) => (
             <Checkbox
               key={a.id}
-              label={labels.amenity[a.id]}
+              label={labels.amenity[a.id]+(a.active?"":pick(" (inactive)"," (ngừng sử dụng)"))}
               checked={filters.amenities.includes(a.id)}
               onChange={() => onChange({ ...filters, amenities: toggle(filters.amenities, a.id) })}
             />

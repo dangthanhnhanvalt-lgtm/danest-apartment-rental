@@ -15,13 +15,14 @@ export function LoginPage() {
   const { path } = useRouter();
   const navigate = useNavigate();
   const { login, register, session } = useAppState();  const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const [mode, setMode] = useState<"login" | "register">(path === "/register" ? "register" : "login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [role, setRole] = useState<User["role"]>("tenant");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,7 @@ export function LoginPage() {
     if (mode === "register" && name.trim().length < 2) e.name = t("login.errName");
     if (!EMAIL_RE.test(email)) e.email = t("login.errEmail");
     if (password.length < 8) e.password = t("login.errPassword");
+    if (mode === "register" && !acceptedTerms) e.terms = pick("Accept the terms and privacy notice to register.", "Bạn cần đồng ý điều khoản và thông báo quyền riêng tư để đăng ký.");
     if (mode === "register" && confirm !== password) e.confirm = t("login.errConfirm");
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -50,9 +52,16 @@ export function LoginPage() {
       if (mode === "login") {
         const s = await login(email, password);
         toast({ title: t("login.welcomeBack"), description: t("login.welcomeBackDesc"), tone: "success" });
-        navigate(s.user.role === "landlord" ? "/landlord" : "/search");
+        navigate(s.user.role === "admin" ? "/admin" : s.user.role === "landlord" ? "/landlord" : "/search");
       } else {
-        const s = await register(name, email, password, role);
+        const s = await register(name, email, password, role, acceptedTerms);
+        if (!s) {
+          toast({ title: t("auth.accountCreated"), description: pick("Check your inbox to confirm your email, then sign in.", "Kiểm tra hộp thư để xác thực email, sau đó đăng nhập."), tone: "success" });
+          switchMode("login");
+          setPassword("");
+          setConfirm("");
+          return;
+        }
         toast({ title: t("auth.accountCreated"), description: t("login.signedIn"), tone: "success" });
         navigate(s.user.role === "landlord" ? "/landlord" : "/search");
       }
@@ -70,10 +79,10 @@ export function LoginPage() {
   };
 
   return (
-    <main className="bg-section-alt">
+    <main className="danest-public-surface danest-login-page min-h-[72vh] bg-white">
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-14 md:px-6 lg:grid-cols-2 lg:items-center lg:py-20">
         <div className="hidden lg:block">
-          <div className="relative overflow-hidden rounded-3xl">
+          <div className="danest-login-photo relative overflow-hidden rounded-[24px]">
             <img
               src="/images/l7.jpg"
               alt={t("login.heroTitle")}
@@ -82,7 +91,7 @@ export function LoginPage() {
             <div className="absolute inset-0" style={{ backgroundColor: "var(--overlay-bg)" }} aria-hidden="true" />
             <div className="absolute inset-x-0 bottom-0 p-8">
               <p className="font-heading text-3xl font-medium text-white">{t("login.heroTitle")}</p>
-              <p className="mt-1 font-heading text-3xl font-medium italic text-white">{t("login.heroAccent")}</p>
+              <p className="mt-1 font-heading text-3xl font-semibold not-italic text-[#8DE3E8]">{t("login.heroAccent")}</p>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-white">
                 {t("login.heroDesc")}
               </p>
@@ -91,7 +100,7 @@ export function LoginPage() {
         </div>
 
         <div className="mx-auto w-full max-w-md">
-          <div className="rounded-2xl border border-border bg-card p-6 md:p-8" style={{ boxShadow: "var(--shadow-elevated)" }}>
+          <div className="danest-login-card rounded-2xl border border-border bg-card p-6 md:p-8" style={{ boxShadow: "var(--shadow-elevated)" }}>
             {session ? (
               <div className="text-center">
                 <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">
@@ -182,9 +191,15 @@ export function LoginPage() {
                           <option value="landlord">{t("auth.landlord")}</option>
                         </Select>
                       </Field>
+                      <div className="space-y-2 rounded-lg border border-border p-3 text-sm">
+                        <p>{pick("Read before registering:", "Đọc trước khi đăng ký:")} <a href="/about#terms" target="_blank" rel="noopener noreferrer" className="underline text-link">{pick("Terms", "Điều khoản")}</a>{" · "}<a href="/about#privacy" target="_blank" rel="noopener noreferrer" className="underline text-link">{pick("Privacy notice", "Thông báo quyền riêng tư")}</a></p>
+                        <label className="flex gap-2 items-start"><input type="checkbox" className="mt-1" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)} required />{pick("I agree to the terms and privacy notice.", "Tôi đồng ý điều khoản và thông báo quyền riêng tư.")}</label>
+                        {errors.terms && <p className="text-destructive">{errors.terms}</p>}
+                      </div>
                     </>
                   ) : null}
 
+                  {mode === "login" && <Link to="/forgot-password" className="block text-right text-sm text-link underline">{pick("Forgot password?", "Quên mật khẩu?")}</Link>}
                   <Button type="submit" size="lg" className="w-full" disabled={busy}>
                     {busy ? t("auth.pleaseWait") : mode === "login" ? t("login.loginTab") : t("auth.createAccount")}
                   </Button>

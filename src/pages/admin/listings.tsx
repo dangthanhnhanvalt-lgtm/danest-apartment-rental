@@ -35,11 +35,12 @@ function AvailabilityCell({ listing }: { listing: Listing }) {
   const { t } = useI18n();
   const { settings } = useAdmin();
   const a = availabilityStatus(listing, settings);
+  if (a.state === "unknown") return <span className="text-xs text-muted-foreground">{t("admin.kpis.notEnoughData")}</span>;
   if (a.state === "hidden") {
     return <span className="text-xs font-medium text-destructive">{t("admin.availability.hiddenReconfirm")}</span>;
   }
   if (a.state === "overdue") {
-    return <span className="text-xs font-medium text-warning">{t("admin.availability.overdue", { days: a.daysSinceConfirmed - settings.availabilityReminderDays })}</span>;
+    return <span className="text-xs font-medium text-warning">{t("admin.availability.overdue", { days: Math.max(0,a.daysSinceConfirmed - settings.availabilityReminderDays) })}</span>;
   }
   return <span className="text-xs text-muted-foreground">{t("admin.availability.confirmed", { date: formatDate(listing.lastAvailabilityConfirmedAt) })}</span>;
 }
@@ -76,7 +77,7 @@ function ListingRow({ listing, onReview }: ListingRowProps) {
       </td>
       <td className={tdClass}><AvailabilityCell listing={listing} /></td>
       <td className={tdClass}>
-        <Button variant="outline" size="sm" onClick={() => onReview(listing.id)}>
+        <Button variant="outline" size="sm" className="danest-review-button min-w-[92px] whitespace-nowrap px-4" onClick={() => onReview(listing.id)}>
           {t("admin.listings.review")}
         </Button>
       </td>
@@ -203,7 +204,7 @@ export function ListingsPage() {
         <EmptyState title={t("admin.listings.empty")} description={t("admin.listings.emptyDesc")} />
       ) : (
         <>
-          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block" style={{ boxShadow: "var(--shadow-surface)" }}>
+          <div tabIndex={0} role="region" aria-label={t("admin.nav.listings")} className="hidden overflow-x-auto rounded-2xl border border-border bg-card md:block" style={{ boxShadow: "var(--shadow-surface)" }}>
             <table className="w-full min-w-[960px] border-collapse">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
@@ -231,7 +232,7 @@ export function ListingsPage() {
         </>
       )}
 
-      {selected ? <ListingDetailPanel listing={selected} onClose={() => setSelectedId(null)} /> : null}
+      {selected ? <ListingDetailPanel key={selected.id} listing={selected} onOpen={setSelectedId} onClose={() => setSelectedId(null)} /> : null}
 
       <PageFooter />
     </div>

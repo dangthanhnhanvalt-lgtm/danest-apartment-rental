@@ -11,6 +11,18 @@ node_modules
 dist
 dist-ssr
 *.local
+# Backup folders
+.danest-ui-cleanup-backups/
+.danest-ui03-only-backups/
+DaNest_UI03_ONLY/
+DaNest_UI_CLEANUP/
+
+# Local environment
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -35,22 +47,8 @@ public/thumbnail.png
 # thousands of files here must never enter git status or agent snapshots.
 .pnpm-store/
 
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-
-# Environment variables
+# Local Supabase settings and legacy data backups (never commit secrets or private data)
 .env
 .env.*
 !.env.example
-
-# Local files
-*.log
-.DS_Store
-
-# Database backups - do not publish
-db/baas/backups/
-
 db/baas/backups/

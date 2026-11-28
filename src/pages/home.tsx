@@ -7,7 +7,7 @@ import { LandlordCtaSection } from "~/components/home/landlord-cta";
 
 export function HomePage() {
   return (
-    <main>
+    <main className="danest-public-home danest-public-surface">
       <Hero />
       <TrustSection />
       <FeaturedApartments />

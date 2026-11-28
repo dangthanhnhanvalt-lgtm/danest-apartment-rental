@@ -1,13 +1,14 @@
-import { useState, type FormEvent, type ReactNode } from "react";
-import { BadgeCheck, Bell, ShieldCheck, UserRound } from "lucide-react";
-import { LANDLORD_PROFILE } from "~/data/listings";
+import {AccountEmailSettings} from "~/components/account-email-settings";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Bell, ShieldCheck, UserRound } from "lucide-react";
+import { readLandlordProfile, saveLandlordProfile, type LandlordProfile } from "~/api/backend/profile";
 import { formatDate } from "~/lib/format";
-import { useNavigate } from "~/lib/router";
+import { Link, useNavigate } from "~/lib/router";
 import { useAppState } from "~/state/app-state";
 import { useLandlordIdentity } from "~/pages/landlord/use-landlord-identity";
 import { useToast } from "~/components/ui/toast";
 import { Button } from "~/components/ui/button";
-import { Checkbox, Field, Input } from "~/components/ui/form";
+import { Field, Input } from "~/components/ui/form";
 import { useI18n } from "~/i18n/language-context";
 import type { Listing } from "~/types";
 
@@ -26,25 +27,28 @@ function Card({ title, icon: Icon, children }: { title: string; icon: typeof Use
 }
 
 export function SettingsPage() {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const { listings, updateListing, logout, session } = useAppState();
   const landlord = useLandlordIdentity();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState({
-    displayName: session?.user.name || landlord.displayName,
-    email: session?.user.email || "an.nguyen@example.com",
-    phone: "+84 90 000 0000",
-    languages: "English, Vietnamese",
-  });
+  const [profile, setProfile] = useState({displayName:"",email:"",phone:"",languages:""});
+  const [serverProfile,setServerProfile]=useState<LandlordProfile|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [busy,setBusy]=useState(false);
+  const [failure,setFailure]=useState("");
+  const [reload,setReload]=useState(0);
+  const userId=session?.user.id??"";
+  useEffect(()=>{
+    let cancelled=false;
+    setLoading(true);setServerProfile(null);setFailure("");
+    if(!userId){setLoading(false);return;}
+    void readLandlordProfile(userId).then(p=>{if(!cancelled){setServerProfile(p);setProfile({displayName:p.displayName,email:p.email,phone:p.phone,languages:p.languages.join(", ")});}}).catch(e=>{if(!cancelled)setFailure(e instanceof Error?e.message:String(e));}).finally(()=>{if(!cancelled)setLoading(false);});
+    return ()=>{cancelled=true;};
+  },[userId,reload]);
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
-  const [notifications, setNotifications] = useState({
-    inquiries: true,
-    viewings: true,
-    availability: false,
-  });
 
   const [confirmPause, setConfirmPause] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -52,21 +56,28 @@ export function SettingsPage() {
   const owned = listings.filter((l) => l.landlordId === landlord.id);
   const published: Listing[] = owned.filter((l) => l.status === "published");
 
-  const saveProfile = (e: FormEvent) => {
+  const saveProfile = async (e: FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!profile.displayName.trim()) errs.displayName = t("landlord.settings.errDisplayName");
+    if (profile.displayName.trim().length < 2 || profile.displayName.trim().length > 100) errs.displayName = t("landlord.settings.errDisplayName");
     if (!profile.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) errs.email = t("landlord.settings.errEmail");
-    if (!profile.phone.trim()) errs.phone = t("landlord.settings.errPhone");
+    if (profile.phone.trim() && !/^[+0-9(). -]{3,40}$/.test(profile.phone.trim())) errs.phone = pick("Enter a valid contact number.","Nhập số liên hệ hợp lệ.");
     setProfileErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    toast({ title: t("landlord.settings.profileSaved"), tone: "success" });
+    if (busy || loading || !serverProfile || !userId) return;
+    setBusy(true);setFailure("");
+    try {const p=await saveLandlordProfile(userId,profile);setServerProfile(p);setProfile({displayName:p.displayName,email:p.email,phone:p.phone,languages:p.languages.join(", ")});toast({title:pick("Profile saved to database", "Đã lưu hồ sơ vào database"),description:pick("Reload the page to refresh your account name.","Tải lại trang để cập nhật tên tài khoản."),tone:"success"});}
+    catch(err){setFailure(err instanceof Error?err.message:String(err));}finally{setBusy(false);}
   };
 
   const pauseAll = async () => {
-    await Promise.all(published.map((l) => updateListing(l.id, { status: "paused" })));
-    setConfirmPause(false);
-    toast({ title: t("landlord.settings.allPaused"), description: t("landlord.settings.allPausedDesc"), tone: "info" });
+    if (busy) return;
+    setBusy(true);setFailure("");
+    const results=await Promise.allSettled(published.map(l=>updateListing(l.id,{status:"paused"})));
+    const succeeded=results.filter(r=>r.status==="fulfilled").length;
+    setConfirmPause(false);setBusy(false);
+    toast({title:pick(`Paused ${succeeded}/${published.length} listings`,`Đã tạm ẩn ${succeeded}/${published.length} tin`),tone:succeeded===published.length?"success":"warning"});
+    if(succeeded!==published.length)setFailure(pick("Some listings could not be paused. Refresh and check their status.","Một số tin chưa được tạm ẩn. Hãy làm mới và kiểm tra trạng thái."));
   };
 
   return (
@@ -78,13 +89,16 @@ export function SettingsPage() {
         </div>
       </div>
 
+      {failure && <div role="alert" className="rounded-lg border border-destructive p-3 text-sm text-destructive">{failure}</div>}
       <Card title={t("landlord.settings.profile")} icon={UserRound}>
-        <form onSubmit={saveProfile} className="space-y-4" noValidate>
+        {loading ? <p>{pick("Loading profile…","Đang tải hồ sơ…")}</p> : !serverProfile ? <Button variant="outline" onClick={()=>setReload(x=>x+1)}>{pick("Retry", "Thử lại")}</Button> : <>
+        <p className="text-sm text-muted-foreground">{pick("Contact details are separate from sign-in credentials and are shared only through permitted inquiries.","Thông tin liên hệ khác với thông tin đăng nhập và chỉ được chia sẻ qua yêu cầu thuê hợp lệ.")}</p>
+        <form onSubmit={saveProfile} className="space-y-4" noValidate><fieldset disabled={busy} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t("landlord.settings.displayName")} htmlFor="displayName" error={profileErrors.displayName}>
               <Input id="displayName" value={profile.displayName} onChange={(e) => setProfile({ ...profile, displayName: e.target.value })} />
             </Field>
-            <Field label={t("landlord.settings.email")} htmlFor="email" error={profileErrors.email}>
+            <Field label={pick("Contact email", "Email liên hệ")} htmlFor="email" error={profileErrors.email}>
               <Input id="email" type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} />
             </Field>
             <Field label={t("landlord.settings.phone")} htmlFor="phone" error={profileErrors.phone}>
@@ -95,45 +109,24 @@ export function SettingsPage() {
             </Field>
           </div>
           <div className="flex justify-end">
-            <Button type="submit">{t("landlord.settings.saveProfile")}</Button>
+            <Button type="submit" disabled={busy}>{t("landlord.settings.saveProfile")}</Button>
           </div>
-        </form>
+        </fieldset></form></>}
       </Card>
 
       <Card title={t("landlord.settings.verificationStatus")} icon={ShieldCheck}>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-accent px-2.5 py-1 text-xs font-semibold text-success">
-            <BadgeCheck className="size-3.5" aria-hidden="true" /> {t("landlord.settings.identityVerified")}
-          </span>
-          <span className="text-sm text-foreground">{landlord.displayName}</span>
+          <span className="text-sm font-medium">{pick("Account approved", "Tài khoản đã được duyệt")}</span>
+          <span className="text-sm text-foreground">{serverProfile?.displayName??landlord.displayName}</span>
         </div>
         <p className="text-sm text-muted-foreground">{t("landlord.settings.identityHint")}</p>
-        <p className="text-xs text-muted-foreground">{t("landlord.settings.memberSince", { date: formatDate(LANDLORD_PROFILE.memberSince) })}</p>
+        {serverProfile?.memberSince && <p className="text-xs text-muted-foreground">{t("landlord.settings.memberSince", { date: formatDate(serverProfile.memberSince) })}</p>}
       </Card>
 
-      <Card title={t("landlord.settings.notifications")} icon={Bell}>
-        <div className="space-y-3">
-          <Checkbox
-            label={t("landlord.settings.newInquiries")}
-            checked={notifications.inquiries}
-            onChange={(e) => setNotifications({ ...notifications, inquiries: e.target.checked })}
-          />
-          <Checkbox
-            label={t("landlord.settings.viewingRequests")}
-            checked={notifications.viewings}
-            onChange={(e) => setNotifications({ ...notifications, viewings: e.target.checked })}
-          />
-          <Checkbox
-            label={t("landlord.settings.availabilityReminders")}
-            checked={notifications.availability}
-            onChange={(e) => setNotifications({ ...notifications, availability: e.target.checked })}
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={() => toast({ title: t("landlord.settings.preferencesSaved"), tone: "success" })}>
-            {t("landlord.settings.savePreferences")}
-          </Button>
-        </div>
+      {userId&&<AccountEmailSettings key={userId} userId={userId}/>}
+      <Card title={pick("Notifications", "Thông báo")} icon={Bell}>
+        <p className="text-sm text-muted-foreground">{pick("In-app notifications are enabled. Configure activity emails above.","Thông báo trong hệ thống đang hoạt động. Cấu hình email nghiệp vụ ở phía trên.")}</p>
+        <Button variant="outline" asChild><Link to="/notifications">{pick("View notifications","Xem thông báo")}</Link></Button>
       </Card>
 
       <section
@@ -154,12 +147,12 @@ export function SettingsPage() {
               </p>
             </div>
             {!confirmPause ? (
-              <Button variant="outline" onClick={() => setConfirmPause(true)} disabled={published.length === 0}>
+              <Button variant="outline" onClick={() => setConfirmPause(true)} disabled={busy || published.length === 0}>
                 {t("landlord.settings.pauseAll")}
               </Button>
             ) : (
               <div className="flex flex-wrap gap-2">
-                <Button variant="destructive" onClick={pauseAll}>{t("landlord.settings.confirmPause")}</Button>
+                <Button variant="destructive" disabled={busy} onClick={pauseAll}>{t("landlord.settings.confirmPause")}</Button>
                 <Button variant="ghost" onClick={() => setConfirmPause(false)}>{t("common.cancel")}</Button>
               </div>
             )}
@@ -177,8 +170,7 @@ export function SettingsPage() {
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    logout();
-                    navigate("/login");
+                    void logout().then(() => navigate("/login")).catch((err) => alert(String(err)));
                   }}
                 >
                   {t("landlord.settings.confirmSignOut")}

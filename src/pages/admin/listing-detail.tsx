@@ -1,3 +1,5 @@
+import { AdminDuplicateComparison } from "~/components/admin-duplicate-comparison";
+import { EvidencePanel } from "~/components/verification/evidence-panel";
 import { useState } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import type { Listing } from "~/types";
@@ -43,18 +45,18 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ListingDetailPanel({ listing, onClose }: { listing: Listing; onClose: () => void }) {
-  const { t } = useI18n();
+export function ListingDetailPanel({ listing, onClose, onOpen }: { listing: Listing; onClose: () => void; onOpen?: (id:string)=>void }) {
+  const { t, pick } = useI18n();
   const labels = useLabels();
-  const { decide, verify, settings } = useAdmin();
+  const { decide, settings, refresh, reconfirm } = useAdmin();
   const { toast } = useToast();
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<ActionKey | null>(null);
-  const [reverify, setReverify] = useState(false);
   const availability = availabilityStatus(listing, settings);
-  const canRestore = listing.status === "hidden" || listing.status === "rejected" || listing.status === "paused" || listing.status === "pending";
+  const canRestore = listing.status === "hidden" && !listing.availabilityHiddenAt && listing.availability!=="unavailable";
+  const awaiting = ["pending","needs-attention"].includes(listing.status);
 
   useEscape(true, onClose);
 
@@ -84,34 +86,8 @@ export function ListingDetailPanel({ listing, onClose }: { listing: Listing; onC
       await decide(listing.id, entry.status, reason.trim(), entry.action);
       toast({ title: t(entry.titleKey), description: t("admin.detail.toastRecorded", { title: listing.title }), tone: key === "reject" || key === "hide" ? "warning" : "success" });
       onClose();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const toggleVerification = async () => {
-    if (listing.landlordId === "admin") {
-      setError(t("admin.detail.errorVerifyOwn"));
-      return;
-    }
-    if (!reverify) {
-      setReverify(true);
-      return;
-    }
-    if (reason.trim().length < 5) {
-      setError(t("admin.detail.errorVerifyReason"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await verify(listing.id, !listing.verificationBadge, reason.trim());
-      toast({
-        title: listing.verificationBadge ? t("admin.detail.toast.badgeRemoved") : t("admin.detail.toast.badgeSet"),
-        description: t("admin.detail.toastRecordedAudit"),
-        tone: "success",
-      });
-      setReverify(false);
-      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -233,6 +209,8 @@ export function ListingDetailPanel({ listing, onClose }: { listing: Listing; onC
             </ul>
           </div>
 
+          <AdminDuplicateComparison key={listing.id} listing={listing} onOpen={onOpen}/>
+
           {listing.moderation.reasons.length > 0 ? (
             <div>
               <h3 className="text-sm font-semibold text-foreground">{t("admin.detail.reasonsOnRecord")}</h3>
@@ -261,24 +239,11 @@ export function ListingDetailPanel({ listing, onClose }: { listing: Listing; onC
             <DetailRow label={t("admin.detail.lastAvailabilityConfirmed")} value={formatDate(listing.lastAvailabilityConfirmedAt)} />
             <DetailRow
               label={t("admin.detail.availabilityState")}
-              value={availability.state === "hidden" ? t("admin.detail.availabilityHidden", { days: availability.hideAfterDays }) : availability.state === "overdue" ? t("admin.detail.availabilityOverdue", { days: availability.daysSinceConfirmed, left: availability.graceDaysLeft }) : t("admin.detail.withinReminder")}
+              value={availability.state === "unknown" ? pick("Not yet confirmed","Chưa xác nhận") : availability.state === "hidden" ? pick("Automatically hidden","Đã ẩn tự động") : availability.state === "overdue" ? pick("Reconfirmation due","Đến hạn xác nhận lại") : t("admin.detail.withinReminder")}
             />
           </dl>
 
-          <div className="rounded-lg border border-border p-3">
-            <h3 className="text-sm font-semibold text-foreground">{t("admin.detail.verification")}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("admin.detail.currentBadge", { state: listing.verificationBadge ? t("admin.detail.badgeSet") : t("admin.detail.badgeNotSet") })}
-            </p>
-            {reverify ? (
-              <p className="mt-2 rounded-md border border-warning/20 bg-warning/10 p-2 text-xs text-warning">
-                {t("admin.detail.verificationWarning")}
-              </p>
-            ) : null}
-            <Button variant="outline" size="sm" className="mt-3" onClick={toggleVerification} disabled={busy}>
-              {reverify ? (listing.verificationBadge ? t("admin.detail.confirmRemoval") : t("admin.detail.confirmBadge")) : listing.verificationBadge ? t("admin.detail.removeBadge") : t("admin.detail.markReviewed")}
-            </Button>
-          </div>
+          <EvidencePanel key={listing.id} listing={listing} admin onChanged={async()=>{await refresh();onClose();}} />
         </div>
 
         <div className="space-y-3 border-t border-border p-5">
@@ -291,7 +256,8 @@ export function ListingDetailPanel({ listing, onClose }: { listing: Listing; onC
             <Textarea id={`reason-${listing.id}`} value={reason} onChange={(e) => { setReason(e.target.value); if (error) setError(""); }} placeholder={t("admin.detail.reasonPlaceholder")} />
           </Field>
           <div className="flex flex-wrap gap-2">
-            {ACTIONS.filter((a) => (a.key === "restore" ? canRestore : true)).map((a) =>
+            {!listing.isSample && listing.availability==="available" && ["draft","pending","needs-attention","published","paused","hidden"].includes(listing.status) ? <Button variant="outline" disabled={busy} onClick={async()=>{if(!reason.trim()){setError(pick("Enter a reason first","Nhập lý do trước"));return;}setBusy(true);setError("");try{await reconfirm(listing.id,reason.trim());toast({title:pick("Availability reconfirmed by admin","Admin đã hỗ trợ xác nhận lại"),tone:"success"});onClose();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}}>{pick("Admin-assisted reconfirmation","Admin hỗ trợ xác nhận")}</Button>:null}
+            {ACTIONS.filter((a) => (a.key === "restore" ? canRestore : a.key === "hide" ? listing.status === "published" : awaiting && (a.key !== "approve" || listing.availability!=="unavailable"))).map((a) =>
               a.destructive ? (
                 confirm === a.key ? (
                   <div key={a.key} className="flex flex-1 items-center gap-2">

@@ -1,18 +1,30 @@
-import { useEffect } from "react";
+import { NotificationsPage } from "~/pages/notifications";
+import { InquiryWorkspace } from "~/components/inquiry-workspace";
+import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
+import { recoverySnapshot, subscribeRecovery } from "~/lib/recovery";
+import { PasswordRecoveryPage } from "~/pages/password-recovery";
+import { isAdminPath } from "~/lib/auth-scope";
+import { RenterProfilePage } from "~/pages/renter-profile";
 import { useRouter } from "~/lib/router";
 import { Header } from "~/components/layout/header";
 import { Footer } from "~/components/layout/footer";
 import { HomePage } from "~/pages/home";
-import { SearchPage } from "~/pages/search";
-import { ApartmentDetailPage } from "~/pages/apartment-detail";
-import { MatchPage } from "~/pages/match";
-import { SavedPage } from "~/pages/saved";
+const SearchPage = lazy(() => import("~/pages/search").then(m => ({ default: m.SearchPage })));
+const ApartmentDetailPage = lazy(() => import("~/pages/apartment-detail").then(m => ({ default: m.ApartmentDetailPage })));
+const MatchPage = lazy(() => import("~/pages/match").then(m => ({ default: m.MatchPage })));
+const SavedPage = lazy(() => import("~/pages/saved").then(m => ({ default: m.SavedPage })));
 import { LoginPage } from "~/pages/login";
+import { StayGuidePage } from "~/pages/stay-guide";
 import { AboutPage } from "~/pages/about";
-import { LandlordLayout } from "~/pages/landlord/layout";
-import { AdminApp } from "~/pages/admin/layout";
+const LandlordLayout = lazy(() => import("~/pages/landlord/layout").then(m => ({ default: m.LandlordLayout })));
+const AdminApp = lazy(() => import("~/pages/admin/layout").then(m => ({ default: m.AdminApp })));
 import { AssistantBubble } from "~/components/ai/assistant-bubble";
 import { useI18n } from "~/i18n/language-context";
+
+function LoadingPage() {
+  const { pick } = useI18n();
+  return <div role="status" className="p-12 text-center text-muted-foreground">{pick("Loading…", "Đang tải…")}</div>;
+}
 
 function NotFound() {
   const { navigate } = useRouter();
@@ -41,7 +53,7 @@ function Routes() {
   const scrollTarget = hash || (query.get("scroll") === "how-it-works" ? "how-it-works" : "");
 
   useEffect(() => {
-    if (!scrollTarget || path !== "/") return;
+    if (!scrollTarget || (path !== "/" && path !== "/about")) return;
     const frame = window.requestAnimationFrame(() => {
       const el = document.getElementById(scrollTarget);
       if (!el) return;
@@ -57,18 +69,27 @@ function Routes() {
   if (path === "/search") return <SearchPage />;
   if (path.startsWith("/apartment/")) return <ApartmentDetailPage id={path.replace("/apartment/", "")} />;
   if (path === "/match") return <MatchPage />;
+  if (path === "/notifications") return <NotificationsPage />;
+  if (path === "/requests") return <InquiryWorkspace mode="tenant" />;
+  if (path === "/profile") return <RenterProfilePage />;
   if (path === "/saved") return <SavedPage />;
   if (path === "/login" || path === "/register") return <LoginPage />;
+  if (path === "/stay-guide") return <StayGuidePage />;
   if (path === "/about") return <AboutPage />;
   if (path.startsWith("/landlord")) return <LandlordLayout path={path} />;
-  if (path.startsWith("/admin")) return <AdminApp path={path} />;
+  if (isAdminPath(path)) return <AdminApp path={path} />;
   return <NotFound />;
 }
 
 export default function App() {
+  const { t } = useI18n();
   const { path } = useRouter();
+  const recoveryUser = useSyncExternalStore(subscribeRecovery, recoverySnapshot);
   const isLandlord = path.startsWith("/landlord");
-  const isAdmin = path.startsWith("/admin");
+  const isAdmin = isAdminPath(path);
+
+  if (recoveryUser || path === "/reset-password") return <PasswordRecoveryPage key="reset" reset />;
+  if (path === "/forgot-password") return <PasswordRecoveryPage key="forgot" reset={false} />;
 
   if (isAdmin) {
     return (
@@ -77,10 +98,10 @@ export default function App() {
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:outline-none"
         >
-          Skip to content
+          {t("aria.skipContent")}
         </a>
         <main id="main-content" tabIndex={-1}>
-          <Routes />
+          <Suspense fallback={<LoadingPage />}><Routes /></Suspense>
         </main>
       </>
     );
@@ -92,11 +113,11 @@ export default function App() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:outline-none"
       >
-        Skip to content
+        {t("aria.skipContent")}
       </a>
       <Header />
       <div id="main-content" className="flex-1" tabIndex={-1}>
-        <Routes />
+        <Suspense fallback={<LoadingPage />}><Routes /></Suspense>
       </div>
       {!isLandlord ? <Footer /> : null}
       {!isLandlord ? <AssistantBubble /> : null}

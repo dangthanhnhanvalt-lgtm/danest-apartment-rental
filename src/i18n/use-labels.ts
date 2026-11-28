@@ -1,15 +1,11 @@
+import { useCatalog } from "~/state/catalog";
 import { useMemo } from "react";
 import {
-  AMENITY_LABEL,
-  AMENITY_LABEL_VI,
   FURNISHING_LABEL,
   FURNISHING_LABEL_VI,
   LISTING_TYPE_LABEL,
   LISTING_TYPE_LABEL_VI,
-  NEIGHBORHOOD_LABEL,
-  NEIGHBORHOOD_LABEL_VI,
   NEIGHBORHOOD_COPY_VI,
-  NEIGHBORHOODS,
   SAMPLE_NOTICE,
   SAMPLE_NOTICE_VI,
 } from "~/data/constants";
@@ -31,20 +27,23 @@ const MODERATION_LABEL_KEY: Record<ModerationResult, string> = {
  */
 export function useLabels() {
   const { lang, t } = useI18n();
+  const {areas,amenities}=useCatalog();
   return useMemo(() => {
     const isVi = lang === "vi";
+    const allNeighborhoods=areas.map(n=>({id:n.id,name:isVi?n.name_vi??n.name:n.name,tagline:n.tagline??"",description:n.description??"",image:n.image_path??"",center:{lat:n.lat,lng:n.lng},lifestyle:n.lifestyle??[],...(isVi?NEIGHBORHOOD_COPY_VI[n.id]??{}:{}),active:n.active}));
     return {
-      amenity: isVi ? AMENITY_LABEL_VI : AMENITY_LABEL,
+      amenity: Object.fromEntries(amenities.map(a=>[a.id,isVi?a.label_vi??a.label:a.label])),
+      amenities: amenities.filter(a=>a.active),
+      allAmenities: amenities,
       furnishing: isVi ? FURNISHING_LABEL_VI : FURNISHING_LABEL,
       listingType: isVi ? LISTING_TYPE_LABEL_VI : LISTING_TYPE_LABEL,
-      neighborhood: isVi ? NEIGHBORHOOD_LABEL_VI : NEIGHBORHOOD_LABEL,
+      neighborhood: Object.fromEntries(allNeighborhoods.map(n=>[n.id,n.name])),
+      allNeighborhoods,
       sampleNotice: isVi ? SAMPLE_NOTICE_VI : SAMPLE_NOTICE,
       moderation: Object.fromEntries(
         Object.entries(MODERATION_LABEL_KEY).map(([result, key]) => [result, t(key)]),
       ) as Record<ModerationResult, string>,
-      neighborhoods: isVi
-        ? NEIGHBORHOODS.map((n) => ({ ...n, ...(NEIGHBORHOOD_COPY_VI[n.id] ?? {}) }))
-        : NEIGHBORHOODS,
+      neighborhoods: allNeighborhoods.filter(n=>n.active),
     };
-  }, [lang, t]);
+  }, [lang, t, areas, amenities]);
 }

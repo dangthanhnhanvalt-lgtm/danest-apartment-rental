@@ -9,12 +9,12 @@ export function TrustSection() {
     { icon: MessagesSquare, title: t("trust.3.title"), body: t("trust.3.body") },
   ];
   return (
-    <section className="border-b border-border bg-section-alt">
-      <div className="mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-16 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-10">
+    <section className="border-y border-border bg-card">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10 lg:px-8">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-6">
           {items.map((item) => (
-            <div key={item.title} className="flex gap-4">
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-link">
+            <div key={item.title} className="flex gap-4 rounded-xl border border-[#E2EBEF] bg-white p-4 dark:bg-muted">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#EAF8FB] text-[#087EBD]">
                 <item.icon className="size-6" aria-hidden="true" />
               </span>
               <div>
@@ -24,7 +24,7 @@ export function TrustSection() {
             </div>
           ))}
         </div>
-        <p className="mt-10 text-center text-xs text-muted-foreground">{t("trust.note")}</p>
+        <p className="mt-5 text-center text-xs text-muted-foreground">{t("trust.note")}</p>
       </div>
     </section>
   );

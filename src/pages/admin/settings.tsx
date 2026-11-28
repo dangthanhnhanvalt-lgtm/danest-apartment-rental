@@ -1,6 +1,9 @@
-import { useState, type FormEvent } from "react";
+import {AdminEmailStatus} from "~/components/admin-email-status";
+import { AdminCatalogSettings } from "~/components/admin-catalog-settings";
+import { AdminPilotSettings } from "~/components/admin-pilot-settings";
+import { useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2, Lock } from "lucide-react";
-import { availabilityStatus } from "~/lib/availability";
+import { supabase } from "~/lib/supabase";
 import { useAdmin } from "~/state/admin-state";
 import { useToast } from "~/components/ui/toast";
 import { Button } from "~/components/ui/button";
@@ -22,35 +25,44 @@ const SCOPE = [
 ];
 
 export function AdminSettingsPage() {
-  const { t } = useI18n();
-  const { settings, listings, saveSettings } = useAdmin();
+  const { t, pick } = useI18n();
+  const { settings, kpis, saveSettings } = useAdmin();
   const { toast } = useToast();
   const [reminder, setReminder] = useState(String(settings.availabilityReminderDays));
   const [grace, setGrace] = useState(String(settings.availabilityGraceDays));
+  useEffect(()=>{setReminder(String(settings.availabilityReminderDays));setGrace(String(settings.availabilityGraceDays));},[settings.availabilityReminderDays,settings.availabilityGraceDays]);
   const [errors, setErrors] = useState<{ reminder?: string; grace?: string }>({});
+  const [reason,setReason]=useState("");
+  const [saveError,setSaveError]=useState("");
   const [busy, setBusy] = useState(false);
+  const [preview,setPreview]=useState<Record<string,number>|null>(null);
+  const [previewError,setPreviewError]=useState("");
+  const [previewBusy,setPreviewBusy]=useState(false);
+  const loadPreview=async()=>{setPreviewBusy(true);setPreview(null);setPreviewError("");try{const {data,error}=await supabase.rpc("danest_maintenance_preview_09c1");if(error)throw error;setPreview(data as Record<string,number>);}catch(e){setPreviewError(e instanceof Error?e.message:String((e as {message?:string})?.message??e));}finally{setPreviewBusy(false);}};
+
 
   const reminderNum = Number(reminder);
   const graceNum = Number(grace);
-  const computedHide = Number.isFinite(reminderNum) && Number.isFinite(graceNum) ? reminderNum + graceNum : null;
-  const overdueNow = listings.filter((l) => availabilityStatus(l, settings).state === "overdue").length;
+  const overdueNow = kpis?.overdueListings ?? "—";
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const next: { reminder?: string; grace?: string } = {};
-    if (!Number.isInteger(reminderNum) || reminderNum < 7 || reminderNum > 30) {
+    if (!Number.isInteger(reminderNum) || !reminder.trim() || reminderNum < 1 || reminderNum > 365) {
       next.reminder = t("admin.settings.errorReminder");
     }
-    if (!Number.isInteger(graceNum) || graceNum < 0 || graceNum > 30) {
+    if (!Number.isInteger(graceNum) || !grace.trim() || graceNum < 0 || graceNum > 90) {
       next.grace = t("admin.settings.errorGrace");
     }
     setErrors(next);
     if (next.reminder || next.grace) return;
-    setBusy(true);
+    if(!reason.trim() || reason.trim().length>1000){setSaveError(pick("Enter a reason (1–1000 characters)","Nhập lý do (1–1000 ký tự)"));return;}
+    setSaveError("");setBusy(true);
     try {
-      await saveSettings({ availabilityReminderDays: reminderNum, availabilityGraceDays: graceNum });
+      await saveSettings({ availabilityReminderDays: reminderNum, availabilityGraceDays: graceNum },reason.trim());
+      setReason("");
       toast({ title: t("admin.settings.toastSaved"), description: t("admin.settings.toastSavedDesc"), tone: "success" });
-    } finally {
+    } catch(err){setSaveError(err instanceof Error?err.message:String(err));} finally {
       setBusy(false);
     }
   };
@@ -62,7 +74,8 @@ export function AdminSettingsPage() {
         description={t("admin.settings.description")}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <nav aria-label={pick("Settings sections","Các nhóm cấu hình")} className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-3">{[["availability",pick("Availability & maintenance","Xác nhận & tự động")],["pilot",pick("Promotion & moderation","Tin nổi bật & kiểm duyệt")],["catalog",pick("Catalog & required fields","Danh mục & trường bắt buộc")],["email",pick("Email queue","Hàng đợi email")]].map(([id,label])=><Button key={id} type="button" variant="outline" size="sm" onClick={()=>{const target=document.getElementById(`settings-${id}`);target?.focus({preventScroll:true});target?.scrollIntoView({block:"start"});}}>{label}</Button>)}</nav>
+      <div id="settings-availability" tabIndex={-1} className="scroll-mt-24 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <CardTitle>{t("admin.settings.availabilityRules")}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">{t("admin.settings.availabilityRulesDesc")}</p>
@@ -71,8 +84,8 @@ export function AdminSettingsPage() {
               <Input
                 id="reminder-days"
                 type="number"
-                min={7}
-                max={30}
+                min={1}
+                max={365}
                 step={1}
                 inputMode="numeric"
                 value={reminder}
@@ -84,7 +97,7 @@ export function AdminSettingsPage() {
                 id="grace-days"
                 type="number"
                 min={0}
-                max={30}
+                max={90}
                 step={1}
                 inputMode="numeric"
                 value={grace}
@@ -92,15 +105,9 @@ export function AdminSettingsPage() {
               />
             </Field>
             <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm text-foreground">
-              {computedHide !== null ? (
-                <>
-                  {t("admin.settings.hiddenAfter", { days: computedHide })}
-                  {t("admin.settings.hiddenAfterBreakdown", { total: computedHide, reminder: reminderNum || 0, grace: graceNum || 0 })}
-                </>
-              ) : (
-                t("admin.settings.hiddenAfter", { days: "—" })
-              )}
+              {pick("The grace period starts when the reminder is actually recorded. Hiding happens on a subsequent maintenance run, not at a fixed calendar deadline.","Thời gian gia hạn bắt đầu khi hệ thống ghi nhận thông báo nhắc nhở. Tin được ẩn ở lần chạy tiếp theo đủ điều kiện, không phải một ngày cố định.")}
             </div>
+            <Field label={pick("Reason for change","Lý do thay đổi")} htmlFor="settings-reason" error={saveError||undefined}><Input id="settings-reason" value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)} required/></Field>
             <Button type="submit" disabled={busy}>{t("admin.settings.saveSettings")}</Button>
           </form>
         </Card>
@@ -122,9 +129,15 @@ export function AdminSettingsPage() {
                 <dd className="font-medium text-foreground">{t("admin.settings.days", { count: settings.availabilityGraceDays })}</dd>
               </div>
             </dl>
-            <p className="mt-3 text-xs text-muted-foreground">{t("admin.settings.changesSimulated")}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{pick("Saved rules apply when the server maintenance runs. Preview does not send notices or hide listings. Cron is managed in Supabase.","Quy tắc đã lưu được áp dụng khi máy chủ chạy maintenance. Xem trước không gửi thông báo hoặc ẩn tin. Cron được quản lý tại Supabase.")}</p>
           </Card>
 
+          <Card>
+            <CardTitle>{pick("Maintenance preview","Xem trước tác vụ tự động")}</CardTitle>
+            <Button type="button" variant="outline" disabled={previewBusy} onClick={()=>void loadPreview()}>{previewBusy?pick("Checking…","Đang kiểm tra…"):pick("Preview only","Chỉ xem trước")}</Button>
+            {previewError&&<p role="alert" className="mt-2 text-destructive">{previewError}</p>}
+            {preview&&<dl className="mt-3 space-y-2 text-sm">{[["listing_reminders",pick("Listing reminders","Tin cần nhắc xác nhận")],["listings_to_hide",pick("Listings to hide","Tin đủ điều kiện ẩn")],["inquiry_reminders",pick("Inquiry reminders","Yêu cầu cần nhắc phản hồi")],["published_missing_confirmation",pick("Missing confirmation date","Tin thiếu ngày xác nhận")],["viewing_reminders",pick("Viewing reminders (recipients)","Nhắc lịch xem (số người nhận)")]].map(([key,label])=><div key={key} className="flex justify-between gap-3"><dt>{label}</dt><dd>{preview[key]??"—"}</dd></div>)}</dl>}
+          </Card>
           <Card>
             <CardTitle>{t("admin.settings.prototypeScope")}</CardTitle>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -142,6 +155,9 @@ export function AdminSettingsPage() {
         </div>
       </div>
 
+      <div id="settings-pilot" tabIndex={-1} className="scroll-mt-24"><AdminPilotSettings /></div>
+      <div id="settings-catalog" tabIndex={-1} className="scroll-mt-24"><AdminCatalogSettings /></div>
+      <div id="settings-email" tabIndex={-1} className="scroll-mt-24"><AdminEmailStatus /></div>
       <PageFooter />
     </div>
   );

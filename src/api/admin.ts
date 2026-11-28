@@ -1,329 +1,74 @@
-import { readSession, withOverrides } from "~/api";
+import { readReports, resolveReport } from "~/api/backend/engagement";
+import { getAdminSupabaseListings, listingUuid, listingRpc } from "~/api/supabase-listings";
 import { supabase } from "~/lib/supabase";
-import { ADMIN_SAMPLE_AUDIT, ADMIN_SAMPLE_LISTINGS, ADMIN_SAMPLE_REPORTS, ADMIN_SAMPLE_USERS } from "~/data/admin";
-import { SAMPLE_INQUIRIES } from "~/data/landlord";
-import { SAMPLE_LISTINGS_WITH_OPS } from "~/data/listings";
-import { DEFAULT_ADMIN_SETTINGS, availabilityStatus } from "~/lib/availability";
-import { formatUSD } from "~/lib/format";
-import type {
-  AdminSettings,
-  AdminUser,
-  AuditLogEntry,
-  Inquiry,
-  Listing,
-  ListingStatus,
-  Report,
-} from "~/types";
-
-const KEY = {
-  listings: "danest.admin.listings",
-  users: "danest.admin.users",
-  reports: "danest.admin.reports",
-  audit: "danest.admin.audit",
-  settings: "danest.admin.settings",
-};
-
-function read<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function write<T>(key: string, value: T): T {
-  localStorage.setItem(key, JSON.stringify(value));
-  return value;
-}
-
-const delay = <T,>(value: T): Promise<T> => Promise.resolve(value);
-
-function mergeAllListings(): Listing[] {
-  const publicListings = withOverrides(SAMPLE_LISTINGS_WITH_OPS);
-  const seeded = [...ADMIN_SAMPLE_LISTINGS.map((l) => withOverrides([l])[0] ?? l)];
-  const combined = [...seeded, ...publicListings];
-  const overrides = read<Record<string, Listing>>(KEY.listings, {});
-  return combined.map((l) => ({ ...l, ...(overrides[l.id] ?? {}) }));
-}
-
-function saveListing(listing: Listing) {
-  const overrides = read<Record<string, Listing>>(KEY.listings, {});
-  write(KEY.listings, { ...overrides, [listing.id]: listing });
-}
-
-export function actorName(): string {
-  const session = readSession();
-  return session?.user.name ? `${session.user.name} (demo)` : "Admin (demo)";
-}
+import type { AdminSettings, AuditLogEntry, Listing, ListingStatus, Report } from "~/types";
 
 export const adminListingRepository = {
-  list: async (): Promise<Listing[]> => {
-    const { data, error } = await supabase
-      .from("properties")
-      .select("source_id, listing_data, status")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Admin listings error:", error);
-      throw new Error(error.message);
-    }
-
-    return (data ?? [])
-      .filter((row) => row.source_id && row.listing_data)
-      .map((row) => ({
-        ...(row.listing_data as Listing),
-        id: row.source_id as string,
-        status: row.status as Listing["status"],
-      }));
+  list: getAdminSupabaseListings,
+  updateStatus: async (id: string, _status: ListingStatus, reason: string, action: AuditLogEntry["action"]): Promise<Listing> => {
+    const uuid = await listingUuid(id);
+    const decisions: Record<string,string> = {"listing-approved":"approved","listing-rejected":"rejected","listing-corrections-requested":"corrections-requested","listing-hidden":"hidden","listing-restored":"restored"};
+    if (!decisions[action]) throw new Error("Unsupported moderation action");
+    await listingRpc("danest_moderate_listing", {p_listing_id:uuid,p_decision:decisions[action],p_reason:reason});
+    const next = (await getAdminSupabaseListings()).find(l=>l.id===id);
+    if (!next) throw new Error("Listing updated; refresh the list");
+    return next;
+  },
+  setVerification: async (id: string, badge: boolean, reason: string) => {
+    await listingRpc("danest_set_verification", {p_listing_id:await listingUuid(id),p_level:badge?"basic_verified":"unverified",p_reason:reason});
   },
 
-  updateStatus: async (
-  id: string,
-  status: ListingStatus,
-  reason: string,
-  action: AuditLogEntry["action"]
-): Promise<Listing> => {
-  // 1. Lấy tin đăng hiện tại từ Supabase
-  const { data, error: fetchError } = await supabase
-    .from("properties")
-    .select("id, source_id, listing_data, status")
-    .eq("source_id", id)
-    .single();
-
-  if (fetchError) throw new Error(fetchError.message);
-  if (!data?.listing_data) {
-    throw new Error("Không tìm thấy tin đăng.");
-  }
-
-  const listing = data.listing_data as Listing;
-
-  // 2. Tạo dữ liệu kiểm duyệt mới
-  const next: Listing = {
-    ...listing,
-    id,
-    status,
-    moderation: {
-      ...listing.moderation,
-      manualReview: {
-        reviewedBy: "Admin",
-        reviewedAt: new Date().toISOString().slice(0, 10),
-        decision:
-          action === "listing-approved"
-            ? "approved"
-            : action === "listing-rejected"
-              ? "rejected"
-              : action === "listing-corrections-requested"
-                ? "corrections-requested"
-                : action === "listing-hidden"
-                  ? "hidden"
-                  : "restored",
-        reason,
-      },
-      reasons: reason
-        ? [reason, ...listing.moderation.reasons]
-        : listing.moderation.reasons,
-    },
-  };
-
-  // 3. Cập nhật trạng thái thật trong Database
-  const { data: updated, error: updateError } = await supabase
-    .from("properties")
-    .update({
-      status,
-      listing_data: next,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", data.id)
-    .select("id, status")
-    .single();
-
-  if (updateError) {
-    console.error("Admin update status error:", updateError);
-    throw new Error(updateError.message);
-  }
-
-  if (!updated) {
-    throw new Error("Không thể xác nhận cập nhật tin đăng.");
-  }
-
-  // 4. Ghi nhật ký tạm thời
-  appendAudit({
-    action,
-    target: listing.title,
-    reason,
-  });
-
-  return next;
-},
-  setVerification: (id: string, badge: boolean, reason: string) => {
-    const listing = mergeAllListings().find((l) => l.id === id);
-    if (!listing) throw new Error("Listing not found");
-    const next: Listing = {
-      ...listing,
-      verificationBadge: badge,
-      verification: {
-        ...listing.verification,
-        checks: listing.verification.checks.map((c) => ({
-          ...c,
-          status: badge ? "verified" : c.status,
-          lastUpdated: badge ? new Date().toISOString().slice(0, 10) : c.lastUpdated,
-        })),
-      },
-    };
-    saveListing(next);
-    appendAudit({ action: "listing-status-changed", target: listing.title, reason: `${badge ? "Verification evidence reviewed and badge added" : "Verification badge removed"}: ${reason}` });
-    return delay(next);
-  },
-
-  reconfirmAvailability: (id: string) => {
-    const listing = mergeAllListings().find((l) => l.id === id);
-    if (!listing) throw new Error("Listing not found");
-    const next: Listing = {
-      ...listing,
-      lastAvailabilityConfirmedAt: new Date().toISOString().slice(0, 10),
-      availabilityReminderSentAt: null,
-      verification: {
-        ...listing.verification,
-        lastAvailabilityConfirmed: new Date().toISOString().slice(0, 10),
-      },
-    };
-    saveListing(next);
-    return delay(next);
+  reconfirmAvailability: async (id:string, reason:string) => listingRpc("danest_reconfirm_availability", {p_listing_id:await listingUuid(id),p_reason:reason}),
+};
+export const adminReportRepository = {
+  list: readReports,
+  update: async (id:string,patch:Partial<Report>) => {
+    if(patch.status!=="resolved" && patch.status!=="unresolved") throw new Error("Invalid report status");
+    await resolveReport(id,patch.status,patch.resolutionNote??"");
   },
 };
 
-export function appendAudit(input: { action: AuditLogEntry["action"]; target: string; reason: string; actor?: string }) {
-  const entries = read<AuditLogEntry[]>(KEY.audit, ADMIN_SAMPLE_AUDIT);
-  const entry: AuditLogEntry = {
-    id: `aud-${Date.now()}`,
-    action: input.action,
-    actor: input.actor ?? actorName(),
-    target: input.target,
-    reason: input.reason,
-    createdAt: new Date().toISOString(),
-  };
-  return write(KEY.audit, [entry, ...entries]);
-}
 
 export const adminAuditRepository = {
-  list: () => delay(read<AuditLogEntry[]>(KEY.audit, ADMIN_SAMPLE_AUDIT)),
-};
-
-export const adminUserRepository = {
-  list: () => delay(read<AdminUser[]>(KEY.users, ADMIN_SAMPLE_USERS)),
-  setStatus: (id: string, status: AdminUser["status"]) => {
-    const users = read<AdminUser[]>(KEY.users, ADMIN_SAMPLE_USERS);
-    const next = users.map((u) => (u.id === id ? { ...u, status } : u));
-    write(KEY.users, next);
-    const user = next.find((u) => u.id === id);
-    appendAudit({
-      action: status === "suspended" ? "account-suspended" : "account-activated",
-      target: user?.name ?? id,
-      reason: status === "suspended" ? "Account suspended from the admin panel." : "Account reactivated.",
-    });
-    return delay(next);
-  },
-};
-
-export const adminReportRepository = {
-  list: () => delay(read<Report[]>(KEY.reports, ADMIN_SAMPLE_REPORTS)),
-  update: (id: string, patch: Partial<Report>) => {
-    const reports = read<Report[]>(KEY.reports, ADMIN_SAMPLE_REPORTS);
-    const next = reports.map((r) => (r.id === id ? { ...r, ...patch } : r));
-    write(KEY.reports, next);
-    const report = next.find((r) => r.id === id);
-    if (report && (patch.status === "resolved" || patch.status === "unresolved")) {
-      appendAudit({
-        action: patch.status === "resolved" ? "report-resolved" : "report-reopened",
-        target: report.listingId,
-        reason: patch.resolutionNote ?? "Report reviewed.",
-      });
+  async list(limit?:number):Promise<AuditLogEntry[]> {
+    if(limit!==undefined && (!Number.isInteger(limit)||limit<1)) throw new Error("Invalid audit limit");
+    const rows:AuditLogEntry[]=[];
+    for(let offset=0;;offset+=100){
+      const size=limit===undefined?100:Math.min(100,limit-offset);
+      if(size<=0) return rows;
+      const {data,error}=await supabase.from("audit_log").select("id,actor_type,actor_id,action,target_type,target_id,target_label,reason,old_values,new_values,seed_key,created_at").order("created_at",{ascending:false}).order("id").range(offset,offset+size-1);
+      if(error) throw new Error(error.message);
+      for(const r of data??[]) rows.push({id:r.id,action:r.action,actor:r.actor_type==="system"?"SYSTEM":`${r.actor_type} · ${r.actor_id}`,target:r.target_label??`${r.target_type} · ${r.target_id??"—"}`,reason:r.reason??"—",createdAt:r.created_at,oldValues:r.old_values,newValues:r.new_values,isSeeded:!!r.seed_key});
+      if(!data || data.length<size || (limit!==undefined && rows.length>=limit)) return rows;
     }
-    return delay(next);
   },
 };
-
 export const adminSettingsRepository = {
-  get: () => delay(read<AdminSettings>(KEY.settings, DEFAULT_ADMIN_SETTINGS)),
-  set: (settings: AdminSettings) => {
-    write(KEY.settings, settings);
-    appendAudit({
-      action: "settings-updated",
-      target: "Availability settings",
-      reason: `Reminder after ${settings.availabilityReminderDays} days, grace period ${settings.availabilityGraceDays} days.`,
-    });
-    return delay(settings);
+  async get():Promise<AdminSettings>{
+    const {data,error}=await supabase.from("admin_settings").select("availability_reminder_days,availability_grace_days").eq("singleton",true).single();
+    if(error || !data) throw new Error(error?.message??"Settings not found");
+    return {availabilityReminderDays:data.availability_reminder_days,availabilityGraceDays:data.availability_grace_days};
+  },
+  async set(settings:AdminSettings,reason:string){
+    await listingRpc("danest_update_settings",{p_reminder_days:settings.availabilityReminderDays,p_grace_days:settings.availabilityGraceDays,p_reason:reason});
   },
 };
-
 export interface AdminKpis {
-  activeListings: number;
-  completePercent: number;
-  verifiedPercent: number;
-  inquiries: number;
-  averageFirstResponseHours: number | null;
-  counts: Record<ListingStatus, number>;
-  requiringAttention: number;
-  totalUsers: number;
+  activeListings:number; completePercent:number|null; verifiedPercent:number|null; inquiries:number;
+  averageFirstResponseHours:number|null; medianFirstResponseHours:number|null; responseWithin24HoursPercent:number|null;
+  responseWithin24HoursDenominator:number; viewingConversionPercent:number|null; overduePercent:number|null;
+  overdueListings:number; unknownConfirmationListings:number; awaitingResponse24Hours:number;
+  counts:Record<ListingStatus,number>; requiringAttention:number; totalUsers:number; sponsoredListings:number;
+  demoListings:number; includesDemo:boolean; asOf:string;
 }
-
-export function computeKpis(listings: Listing[], users: AdminUser[], inquiries: Inquiry[], settings: AdminSettings): AdminKpis {
-  const counts: Record<ListingStatus, number> = {
-    published: 0,
-    draft: 0,
-    paused: 0,
-    pending: 0,
-    "needs-attention": 0,
-    rejected: 0,
-    hidden: 0,
-    archived: 0,
-  };
-  listings.forEach((l) => {
-    counts[l.status] += 1;
-  });
-  const live = listings.filter((l) => l.status === "published" && availabilityStatus(l, settings).state !== "hidden");
-  const complete = live.filter((l) => l.moderation.checks.every((c) => c.result !== "incomplete") && l.moderation.reasons.length === 0);
-  const verified = live.filter((l) => l.verificationBadge);
-  const withReview = inquiries.filter((i) => i.status !== "new");
-  const responseTimes = withReview.map((i) => {
-    const created = new Date(`${i.createdAt}T09:00:00`).getTime();
-    const responded = new Date(`${i.createdAt}T${i.status === "viewing_scheduled" || i.status === "rented" ? "15" : "17"}:00:00`).getTime();
-    return Math.max(1, (responded - created) / 3_600_000);
-  });
-  return {
-    activeListings: live.length,
-    completePercent: live.length ? Math.round((complete.length / live.length) * 100) : 0,
-    verifiedPercent: live.length ? Math.round((verified.length / live.length) * 100) : 0,
-    inquiries: inquiries.length,
-    averageFirstResponseHours: responseTimes.length ? Math.round((responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) * 10) / 10 : null,
-    counts,
-    requiringAttention: counts.pending + counts["needs-attention"] + counts.rejected,
-    totalUsers: users.length,
-  };
+export async function readAdminKpis():Promise<AdminKpis>{
+  const data=await listingRpc("danest_admin_kpis",{p_include_demo:false});
+  if(!data || typeof data.activeListings!=="number" || !data.counts) throw new Error("KPI response unavailable");
+  return data as AdminKpis;
 }
-
-export function pendingQueue(listings: Listing[]): Listing[] {
-  return listings.filter((l) => l.status === "pending" || l.status === "needs-attention");
-}
-
-export function listingPriceLabel(listing: Listing): string {
-  return formatUSD(listing.monthlyRent);
-}
-
-export function allInquiries(): Inquiry[] {
-  const stored = read<Inquiry[]>("livora.inquiries", []);
-  const overrides = read<Record<string, Partial<Inquiry>>>("livora.inquiry-overrides", {});
-  const createdIds = new Set(stored.map((i) => i.id));
-  const merged = [...stored, ...SAMPLE_INQUIRIES.filter((i) => !createdIds.has(i.id))].map((i) => ({
-    ...i,
-    ...(overrides[i.id] ?? {}),
-  }));
-  // Normalise legacy statuses to the FR-31 five-state model.
-  return merged.map((i) => {
-    const legacy = i.status as string;
-    const status: Inquiry["status"] =
-      legacy === "accepted" ? "viewing_scheduled" : legacy === "declined" ? "not_proceeding" : i.status;
-    return { ...i, status };
-  });
+export interface LandlordKpiRow {listing_id:string; title:string; status:ListingStatus; inquiries:number; confirmedViewings:number; rented:number; views:number|null}
+export async function readLandlordKpis():Promise<LandlordKpiRow[]>{
+  const data=await listingRpc("danest_landlord_kpis",{});
+  if(!data || !Array.isArray(data.listings)) throw new Error("KPI response unavailable");
+  return data.listings as LandlordKpiRow[];
 }

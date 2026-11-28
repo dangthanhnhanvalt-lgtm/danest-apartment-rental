@@ -1,689 +1,99 @@
-import { Sparkles, Send, RotateCcw, MapPin, CheckCircle2, ArrowRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { AMENITIES, NEIGHBORHOODS } from "~/data/constants";
-import { formatRent, summarizeCosts } from "~/lib/format";
-import { Link, useRouter } from "~/lib/router";
-import { useAppState } from "~/state/app-state";
+import { Sparkles, RotateCcw, MapPin, CheckCircle2, ArrowRight } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { formatUSD } from "~/lib/format";
+import { Link } from "~/lib/router";
+import { getSupabaseListings } from "~/api/supabase-listings";
 import { Button } from "~/components/ui/button";
 import { Chip, Input } from "~/components/ui/form";
 import { ListingCard, SampleDataNote } from "~/components/ui/listing-card";
 import { useI18n } from "~/i18n/language-context";
 import { useLabels } from "~/i18n/use-labels";
-import type { AmenityId, FurnishingStatus, Listing, NeighborhoodId } from "~/types";
+import { emptyMatchPreferences, matchPublicListings, validMatchBudget, validMatchDate, vietnamToday, type MatchPreferences } from "~/lib/match-listings";
+import type { Listing } from "~/types";
 import { cn } from "~/lib/utils";
 
-type StepId =
-  | "intro"
-  | "budget"
-  | "neighborhood"
-  | "duration"
-  | "moveIn"
-  | "bedrooms"
-  | "furnishing"
-  | "lifestyle"
-  | "amenities"
-  | "done";
-
-type Translate = (key: string, vars?: Record<string, string | number>) => string;
-
-interface Preferences {
-  budget: number | null;
-  neighborhood: NeighborhoodId | "any" | null;
-  duration: number | null;
-  moveIn: string | null;
-  bedrooms: number | null;
-  furnishing: FurnishingStatus | null;
-  lifestyle: string[];
-  amenities: AmenityId[];
-}
-
-const EMPTY: Preferences = {
-  budget: null,
-  neighborhood: null,
-  duration: null,
-  moveIn: null,
-  bedrooms: null,
-  furnishing: null,
-  lifestyle: [],
-  amenities: [],
-};
-
-interface Message {
-  from: "assistant" | "user";
-  text: string;
-}
-
-const STEPS: StepId[] = [
-  "intro",
-  "budget",
-  "neighborhood",
-  "duration",
-  "moveIn",
-  "bedrooms",
-  "furnishing",
-  "lifestyle",
-  "amenities",
-  "done",
-];
-
-// Lifestyle tags use stable internal ids so matching never depends on the UI language.
-const STYLE_TAG_IDS = ["quiet", "cafes", "beach", "remote", "social", "family"] as const;
-type StyleTagId = (typeof STYLE_TAG_IDS)[number];
-
-const STYLE_TAG_LABEL: Record<StyleTagId, string> = {
-  quiet: "ai.tag.quiet",
-  cafes: "ai.tag.cafes",
-  beach: "ai.tag.beach",
-  remote: "ai.tag.remote",
-  social: "ai.tag.social",
-  family: "ai.tag.family",
-};
-
-function parsePrompt(prompt: string): Partial<Preferences> {
-  const result: Partial<Preferences> = {};
-  const budget = prompt.match(/\$\s?(\d{3,4})|(\d{3,4})\s?(?:\$|usd|dollars?|đô|usd)/i);
-  if (budget) result.budget = Number(budget[1] ?? budget[2]);
-  const beds = prompt.match(/(\d)\s*[-\s]?(?:bedroom|phòng ngủ|pn)/i);
-  if (beds) result.bedrooms = Number(beds[1]);
-  if (/remote|work|quiet|desk|office|làm việc|yên tĩnh/i.test(prompt)) result.lifestyle = ["remote"];
-  if (/beach|my khe|biển|mỹ khê/i.test(prompt)) result.lifestyle = [...(result.lifestyle ?? []), "beach"];
-  const hood = NEIGHBORHOODS.find((n) => prompt.toLowerCase().includes(n.name.toLowerCase()));
-  if (hood) result.neighborhood = hood.id;
-  return result;
-}
-
-function scoreListing(
-  listing: Listing,
-  prefs: Preferences,
-  t: Translate,
-  labels: ReturnType<typeof useLabels>,
-): { score: number; reasons: string[] } {
-  const reasons: string[] = [];
-  let score = 0;
-  const costs = summarizeCosts(listing);
-
-  if (prefs.budget !== null) {
-    if (costs.estimatedMonthly <= prefs.budget) {
-      score += 30;
-      reasons.push(t("ai.reason.budgetIn", { estimate: formatRent(costs.estimatedMonthly), budget: formatRent(prefs.budget) }));
-    } else if (listing.monthlyRent <= prefs.budget) {
-      score += 15;
-      reasons.push(t("ai.reason.budgetBase", { rent: formatRent(listing.monthlyRent) }));
-    }
-  }
-  if (prefs.neighborhood && prefs.neighborhood !== "any") {
-    if (listing.neighborhood === prefs.neighborhood) {
-      score += 25;
-      reasons.push(t("ai.reason.area", { area: labels.neighborhood[listing.neighborhood] }));
-    }
-  }
-  if (prefs.duration) {
-    if (prefs.duration >= listing.rentalDurationMonths[0] && prefs.duration <= listing.rentalDurationMonths[1]) {
-      score += 15;
-      reasons.push(
-        t("ai.reason.duration", {
-          months: prefs.duration,
-          min: listing.rentalDurationMonths[0],
-          max: listing.rentalDurationMonths[1],
-        }),
-      );
-    } else {
-      score -= 10;
-    }
-  }
-  if (prefs.bedrooms) {
-    if (listing.bedrooms === prefs.bedrooms) {
-      score += 15;
-      reasons.push(t("ai.reason.bedrooms", { count: listing.bedrooms }));
-    } else if (listing.bedrooms > prefs.bedrooms) {
-      score += 6;
-      reasons.push(t("ai.reason.bedroomsMore", { count: listing.bedrooms, wanted: prefs.bedrooms }));
-    } else {
-      score -= 8;
-    }
-  }
-  if (prefs.furnishing) {
-    if (listing.furnishing === prefs.furnishing) {
-      score += 8;
-      reasons.push(labels.furnishing[listing.furnishing]);
-    } else {
-      score -= 4;
-    }
-  }
-  if (prefs.lifestyle.includes("remote")) {
-    if (listing.amenities.includes("workspace") || listing.amenities.includes("wifi")) {
-      score += 8;
-      reasons.push(t("ai.reason.remote"));
-    }
-  }
-  if (prefs.lifestyle.includes("beach")) {
-    const match = listing.distanceToBeach.match(/([\d.,]+)\s*(km|m)\b/i);
-    const meters = match ? Number(match[1].replace(",", ".")) * (match[2].toLowerCase() === "km" ? 1000 : 1) : 9999;
-    if (meters <= 800) {
-      score += 6;
-      reasons.push(listing.distanceToBeach);
-    }
-  }
-  if (prefs.lifestyle.includes("quiet")) {
-    if (listing.neighborhood === "my-an" || listing.neighborhood === "son-tra") {
-      score += 5;
-      reasons.push(t("ai.reason.quiet"));
-    }
-  }
-  const amenityHits = prefs.amenities.filter((a) => listing.amenities.includes(a));
-  if (prefs.amenities.length > 0 && amenityHits.length > 0) {
-    score += amenityHits.length * 3;
-    reasons.push(t("ai.reason.amenities", { list: amenityHits.map((a) => labels.amenity[a].toLowerCase()).join(", ") }));
-  }
-  if (listing.verificationBadge) {
-    score += 4;
-    reasons.push(t("ai.reason.verified"));
-  }
-  if (listing.availability === "available") score += 3;
-
-  return { score, reasons: reasons.slice(0, 4) };
-}
-
-function matchListings(
-  listings: Listing[],
-  prefs: Preferences,
-  t: Translate,
-  labels: ReturnType<typeof useLabels>,
-): { listing: Listing; reasons: string[]; score: number }[] {
-  return listings
-    .filter((l) => l.status === "published")
-    .map((listing) => ({ listing, ...scoreListing(listing, prefs, t, labels) }))
-    .filter((m) => m.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 4);
-}
+const steps = ["intro","budget","neighborhood","duration","moveIn","bedrooms","furnishing","lifestyle","amenities","done"] as const;
+type Step = typeof steps[number];
+const questions: Record<Step,string> = {intro:"ai.welcome",budget:"ai.askBudget",neighborhood:"ai.askNeighborhood",duration:"ai.askDuration",moveIn:"ai.askMoveIn",bedrooms:"ai.askBedrooms",furnishing:"ai.askFurnishing",lifestyle:"ai.askLifestyle",amenities:"ai.askAmenities",done:"ai.thanks"};
 
 export function MatchAssistant({ variant = "page" }: { variant?: "page" | "compact" }) {
-  const compact = variant === "compact";
-  const { query } = useRouter();
-  const { listings } = useAppState();
-  const { t } = useI18n();
-  const labels = useLabels();
-  const [step, setStep] = useState<StepId>("intro");
-  const [prefs, setPrefs] = useState<Preferences>(EMPTY);
-  const [messages, setMessages] = useState<Message[]>([{ from: "assistant", text: t("ai.welcome") }]);
-  const [input, setInput] = useState("");
-  const [budgetInput, setBudgetInput] = useState("");
-  const [moveIn, setMoveIn] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const started = useRef(false);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, step]);
-
-  const push = (from: Message["from"], text: string) => setMessages((m) => [...m, { from, text }]);
-  const goTo = (next: StepId) => setStep(next);
-
-  const begin = (prompt?: string) => {
-    if (prompt) {
-      const parsed = parsePrompt(prompt);
-      setPrefs((p) => ({ ...p, ...parsed }));
-      push("user", prompt);
-    }
-    push("assistant", t("ai.askBudget"));
-    goTo("budget");
+  const compact=variant==="compact";
+  const {t,pick,lang}=useI18n();
+  const labels=useLabels();
+  const [step,setStep]=useState<Step>("intro");
+  const [prefs,setPrefs]=useState<MatchPreferences>(emptyMatchPreferences);
+  const [budget,setBudget]=useState("");
+  const [date,setDate]=useState("");
+  const [rows,setRows]=useState<Listing[]>([]);
+  const [status,setStatus]=useState<"loading"|"ready"|"error">("loading");
+  const [request,setRequest]=useState(0);
+  const content=useRef<HTMLDivElement>(null);
+  const resultsHeading=useRef<HTMLHeadingElement>(null);
+  const questionHeading=useRef<HTMLDivElement>(null);
+  const id=useId();
+  const idx=steps.indexOf(step);
+  const next=(patch:Partial<MatchPreferences>={})=>{setPrefs(p=>({...p,...patch}));setStep(steps[Math.min(idx+1,steps.length-1)]);};
+  const previous=()=>setStep(steps[Math.max(0,idx-1)]);
+  const restart=()=>{setPrefs(emptyMatchPreferences());setBudget("");setDate("");setStep("intro");setRows([]);setStatus("loading");};
+  // Query the public RPC directly. AppState may merge a landlord's private listings into its cache.
+  useEffect(()=>{
+    if(step!=="done")return;
+    let cancelled=false;
+    setRows([]);setStatus("loading");
+    void getSupabaseListings().then(data=>{if(!cancelled){setRows(data);setStatus("ready");}}).catch(()=>{if(!cancelled){setRows([]);setStatus("error");}});
+    return ()=>{cancelled=true;};
+  },[step,request]);
+  useEffect(()=>{
+    if(step==="intro"){if(content.current)content.current.scrollTop=0;return;}
+    const target=step==="done"?resultsHeading.current:questionHeading.current;
+    if(content.current&&target&&(compact||(step!=="done"&&content.current.scrollHeight>content.current.clientHeight+2))){
+      const scroller=content.current;
+      scroller.scrollTop=step==="done"?0:target.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop-12;
+    } else target?.scrollIntoView({block:step==="done"?"start":"nearest",behavior:"instant"});
+    target?.focus({preventScroll:true});
+  },[step,compact]);
+  const matches=status==="ready"&&step==="done"?matchPublicListings(rows,prefs):[];
+  const fmtDate=(s:string)=>new Intl.DateTimeFormat(lang==="vi"?"vi-VN":"en-US",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${s}T00:00:00Z`));
+  const answers:Partial<Record<Step,string>>={
+    budget:prefs.budget===null?t("ai.flexible"):t("ai.userBudget",{value:prefs.budget}),
+    neighborhood:prefs.neighborhood&&prefs.neighborhood!=="any"?labels.neighborhood[prefs.neighborhood]:t("ai.anywhere"),
+    duration:prefs.duration===null?t("ai.noPreference"):t("ai.userMonths",{count:prefs.duration}),
+    moveIn:prefs.moveIn?fmtDate(prefs.moveIn):t("ai.noPreference"),
+    bedrooms:prefs.bedrooms===null?t("ai.noPreference"):prefs.bedrooms>=3?t("ai.userBedrooms3"):t("ai.userBedrooms",{count:prefs.bedrooms}),
+    furnishing:prefs.furnishing?labels.furnishing[prefs.furnishing]:t("ai.noPreference"),
+    lifestyle:prefs.lifestyle.map(x=>t(`ai.tag.${x}`)).join(", ")||t("ai.noPreference"),
+    amenities:prefs.amenities.map(x=>labels.amenity[x]).join(", ")||t("ai.noAmenities"),
   };
-
-  useEffect(() => {
-    const prompt = query.get("prompt");
-    if (prompt && !started.current) {
-      started.current = true;
-      begin(prompt);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
-
-  const chooseBudget = (value: number | null) => {
-    setPrefs((p) => ({ ...p, budget: value }));
-    push("user", value ? t("ai.userBudget", { value }) : t("ai.flexible"));
-    push("assistant", t("ai.askNeighborhood"));
-    goTo("neighborhood");
-  };
-
-  const chooseNeighborhood = (id: NeighborhoodId | "any") => {
-    setPrefs((p) => ({ ...p, neighborhood: id }));
-    push("user", id === "any" ? t("ai.anywhere") : labels.neighborhood[id]);
-    push("assistant", t("ai.askDuration"));
-    goTo("duration");
-  };
-
-  const chooseDuration = (months: number) => {
-    setPrefs((p) => ({ ...p, duration: months }));
-    push("user", t("ai.userMonths", { count: months }));
-    push("assistant", t("ai.askMoveIn"));
-    goTo("moveIn");
-  };
-
-  const submitMoveIn = () => {
-    if (!moveIn) return;
-    setPrefs((p) => ({ ...p, moveIn }));
-    push("user", new Date(`${moveIn}T00:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }));
-    push("assistant", t("ai.askBedrooms"));
-    goTo("bedrooms");
-  };
-
-  const chooseBedrooms = (n: number) => {
-    setPrefs((p) => ({ ...p, bedrooms: n }));
-    push("user", n >= 3 ? t("ai.userBedrooms3") : t("ai.userBedrooms", { count: n }));
-    push("assistant", t("ai.askFurnishing"));
-    goTo("furnishing");
-  };
-
-  const chooseFurnishing = (f: FurnishingStatus) => {
-    setPrefs((p) => ({ ...p, furnishing: f }));
-    push("user", labels.furnishing[f]);
-    push("assistant", t("ai.askLifestyle"));
-    goTo("lifestyle");
-  };
-
-  const toggleLifestyle = (tag: StyleTagId) => {
-    setPrefs((p) => ({
-      ...p,
-      lifestyle: p.lifestyle.includes(tag) ? p.lifestyle.filter((t2) => t2 !== tag) : [...p.lifestyle, tag],
-    }));
-  };
-
-  const toggleAmenity = (id: AmenityId) => {
-    setPrefs((p) => ({
-      ...p,
-      amenities: p.amenities.includes(id) ? p.amenities.filter((a) => a !== id) : [...p.amenities, id],
-    }));
-  };
-
-  const finishLifestyle = () => {
-    push(
-      "user",
-      prefs.lifestyle.length > 0
-        ? prefs.lifestyle.map((id) => t(STYLE_TAG_LABEL[id as StyleTagId] ?? "ai.noPreference")).join(", ")
-        : t("ai.noPreference"),
-    );
-    push("assistant", t("ai.askAmenities"));
-    goTo("amenities");
-  };
-
-  const finish = () => {
-    push(
-      "user",
-      prefs.amenities.length > 0 ? prefs.amenities.map((a) => labels.amenity[a]).join(", ") : t("ai.noAmenities"),
-    );
-    push("assistant", t("ai.thanks"));
-    goTo("done");
-  };
-
-  // Single submit action: works both to start a free-text search and to answer mid-flow.
-  const sendFreeText = () => {
-    const text = input.trim();
-    if (!text) return;
-    const parsed = parsePrompt(text);
-    if (step === "intro") {
-      setInput("");
-      begin(text);
-      return;
-    }
-    setPrefs((p) => ({ ...p, ...parsed }));
-    push("user", text);
-    setInput("");
-    if (step === "budget") {
-      push("assistant", parsed.budget ? t("ai.askNeighborhood") : t("ai.askNeighborhood"));
-      goTo("neighborhood");
-    }
-  };
-
-  const restart = () => {
-    setPrefs(EMPTY);
-    setStep("intro");
-    setMessages([{ from: "assistant", text: t("ai.welcomeRestart") }]);
-    setInput("");
-    setBudgetInput("");
-    setMoveIn("");
-  };
-
-  const matches = step === "done" ? matchListings(listings, prefs, t, labels) : [];
-  const stepIndex = STEPS.indexOf(step);
-
-  const header = (
-    <div className={compact ? "flex items-center gap-3 border-b border-border px-4 py-3" : "flex items-center gap-3 border-b border-border p-4"}>
-      <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <Sparkles className="size-4" aria-hidden="true" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-card-foreground">{t("ai.title")}</p>
-        <p className="text-xs text-muted-foreground">{t("ai.subtitle")}</p>
-      </div>
-      <button
-        type="button"
-        onClick={restart}
-        className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={t("common.startOver")}
-      >
-        <RotateCcw className="size-4" aria-hidden="true" />
-      </button>
-    </div>
-  );
-
-  const progress = (
-    <div className="border-b border-border px-4 py-2">
-      <div className="flex items-center gap-1" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length - 2} aria-valuenow={Math.max(0, stepIndex - 1)} aria-label={t("ai.title")}>
-        {STEPS.slice(1, -1).map((s, i) => (
-          <span key={s} className={cn("h-1 flex-1 rounded-full", stepIndex > i + 1 ? "bg-primary" : "bg-muted")} />
-        ))}
-      </div>
-    </div>
-  );
-
-  const conversation = (
-    <div className="space-y-3 p-4">
-      {messages.map((m, i) => (
-        <div key={i} className={cn("flex", m.from === "user" ? "justify-end" : "justify-start")}>
-          <p
-            className={cn(
-              "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-              m.from === "user" ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-tl-sm bg-muted text-foreground",
-            )}
-          >
-            {m.text}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-
-  const controls = (
-    <div className="border-t border-border p-4">
-      {step === "intro" ? (
-        <form
-          className="space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendFreeText();
-          }}
-        >
-          <label htmlFor="match-input" className="sr-only">
-            {t("ai.describeLabel")}
-          </label>
-          <div className="flex gap-2">
-            <Input id="match-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("ai.inputPlaceholder")} />
-            <Button type="submit" disabled={!input.trim()} aria-label={t("common.send")}>
-              <Send className="size-4" aria-hidden="true" />
-            </Button>
-          </div>
-          <Button type="button" variant="ghost" className="w-full" onClick={() => begin()}>
-            {t("ai.start")}
-          </Button>
-        </form>
-      ) : null}
-
-      {step === "budget" ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {[400, 600, 800, 1200].map((b) => (
-              <Chip key={b} selected={budgetInput === String(b)} onClick={() => setBudgetInput(String(b))}>
-                ${b}
-              </Chip>
-            ))}
-            <Chip selected={budgetInput === "flex"} onClick={() => setBudgetInput("flex")}>
-              {t("ai.flexible")}
-            </Chip>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min={100}
-              value={budgetInput === "flex" ? "" : budgetInput}
-              onChange={(e) => setBudgetInput(e.target.value)}
-              placeholder={t("ai.budgetPlaceholder")}
-              aria-label={t("ai.budgetPlaceholder")}
-            />
-            <Button onClick={() => chooseBudget(budgetInput === "flex" || !budgetInput ? null : Number(budgetInput))} disabled={!budgetInput}>
-              {t("common.next")}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {step === "neighborhood" ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {labels.neighborhoods.map((n) => (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => chooseNeighborhood(n.id)}
-              className="rounded-lg border border-input bg-background px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {n.name}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => chooseNeighborhood("any")}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-2"
-          >
-            {t("ai.anywhere")}
-          </button>
-        </div>
-      ) : null}
-
-      {step === "duration" ? (
-        <div className="flex flex-wrap gap-2">
-          {[1, 3, 6, 12].map((m) => (
-            <Chip key={m} selected={false} onClick={() => chooseDuration(m)}>
-              {t("ai.userMonths", { count: m })}
-            </Chip>
-          ))}
-        </div>
-      ) : null}
-
-      {step === "moveIn" ? (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="match-movein" className="sr-only">
-            {t("ai.askMoveIn")}
-          </label>
-          <Input id="match-movein" type="date" value={moveIn} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setMoveIn(e.target.value)} />
-          <Button onClick={submitMoveIn} disabled={!moveIn}>
-            {t("common.continue")}
-          </Button>
-        </div>
-      ) : null}
-
-      {step === "bedrooms" ? (
-        <div className="flex flex-wrap gap-2">
-          {[1, 2, 3].map((n) => (
-            <Chip key={n} selected={false} onClick={() => chooseBedrooms(n)}>
-              {n >= 3 ? t("ai.userBedrooms3") : t("ai.userBedrooms", { count: n })}
-            </Chip>
-          ))}
-        </div>
-      ) : null}
-
-      {step === "furnishing" ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {(["furnished", "semi-furnished", "unfurnished"] as FurnishingStatus[]).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => chooseFurnishing(f)}
-              className="rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {labels.furnishing[f]}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {step === "lifestyle" ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {STYLE_TAG_IDS.map((tag) => (
-              <Chip key={tag} selected={prefs.lifestyle.includes(tag)} onClick={() => toggleLifestyle(tag)}>
-                {t(STYLE_TAG_LABEL[tag])}
-              </Chip>
-            ))}
-          </div>
-          <Button className="w-full" onClick={finishLifestyle}>
-            {t("common.continue")}
-          </Button>
-        </div>
-      ) : null}
-
-      {step === "amenities" ? (
-        <div className="space-y-3">
-          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
-            {AMENITIES.map((a) => (
-              <Chip key={a.id} selected={prefs.amenities.includes(a.id)} onClick={() => toggleAmenity(a.id)}>
-                {labels.amenity[a.id]}
-              </Chip>
-            ))}
-          </div>
-          <Button className="w-full" onClick={finish}>
-            {t("ai.showMatches")} <ArrowRight className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-      ) : null}
-
-      {step === "done" ? (
-        <Button className="w-full" onClick={restart} variant="outline">
-          <RotateCcw className="size-4" aria-hidden="true" /> {t("ai.newSearch")}
-        </Button>
-      ) : null}
-    </div>
-  );
-
-  const results = (
-    <div className={compact ? "p-4" : ""}>
-      {step !== "done" ? (
-        <div className="grid gap-4">
-          <div className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--shadow-surface)" }}>
-            <h2 className="text-xl font-semibold text-card-foreground">{t("ai.howItWorks")}</h2>
-            <ul className="mt-3 space-y-2 text-base text-muted-foreground">
-              <li className="flex gap-2"><CheckCircle2 className="mt-1 size-4 shrink-0 text-link" aria-hidden="true" /> {t("ai.howItWorks1")}</li>
-              <li className="flex gap-2"><CheckCircle2 className="mt-1 size-4 shrink-0 text-link" aria-hidden="true" /> {t("ai.howItWorks2")}</li>
-              <li className="flex gap-2"><CheckCircle2 className="mt-1 size-4 shrink-0 text-link" aria-hidden="true" /> {t("ai.howItWorks3")}</li>
-              <li className="flex gap-2"><CheckCircle2 className="mt-1 size-4 shrink-0 text-link" aria-hidden="true" /> {t("ai.howItWorks4")}</li>
-            </ul>
-            <p className="mt-4 rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">{t("ai.prototypeNote")}</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--shadow-surface)" }}>
-            <h3 className="text-base font-semibold text-card-foreground">{t("ai.yourAnswers")}</h3>
-            {prefs.budget === null && !prefs.neighborhood && !prefs.duration && !prefs.bedrooms ? (
-              <p className="mt-2 text-sm text-muted-foreground">{t("ai.answersHint")}</p>
-            ) : (
-              <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                {prefs.budget !== null ? (<><dt className="text-muted-foreground">{t("home.budget")}</dt><dd className="font-medium text-foreground">${prefs.budget}</dd></>) : null}
-                {prefs.neighborhood ? (<><dt className="text-muted-foreground">{t("search.neighborhood")}</dt><dd className="font-medium text-foreground">{prefs.neighborhood === "any" ? t("ai.anywhere") : labels.neighborhood[prefs.neighborhood]}</dd></>) : null}
-                {prefs.duration ? (<><dt className="text-muted-foreground">{t("filter.duration")}</dt><dd className="font-medium text-foreground">{t("ai.userMonths", { count: prefs.duration })}</dd></>) : null}
-                {prefs.bedrooms ? (<><dt className="text-muted-foreground">{t("search.bedrooms")}</dt><dd className="font-medium text-foreground">{prefs.bedrooms}+</dd></>) : null}
-                {prefs.furnishing ? (<><dt className="text-muted-foreground">{t("filter.furnishing")}</dt><dd className="font-medium text-foreground">{labels.furnishing[prefs.furnishing]}</dd></>) : null}
-              </dl>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-heading text-2xl font-medium text-foreground">{t("ai.recommended")}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {matches.length > 0
-                  ? matches.length === 1
-                    ? t("ai.matchesCountOne")
-                    : t("ai.matchesCount", { count: matches.length })
-                  : t("ai.noMatches")}
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={restart}>
-              {t("common.startOver")}
-            </Button>
-          </div>
-
-          {matches.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-border bg-card p-8 text-center" style={{ boxShadow: "var(--shadow-surface)" }}>
-              <MapPin className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
-              <h3 className="mt-3 text-lg font-semibold text-card-foreground">{t("ai.noMatchesTitle")}</h3>
-              <p className="mx-auto mt-2 max-w-md text-base text-muted-foreground">{t("ai.noMatchesHint")}</p>
-              <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-                <Button onClick={restart}>{t("ai.adjust")}</Button>
-                <Button variant="outline" asChild>
-                  <Link to="/search">{t("ai.browseAll")}</Link>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-5">
-              {matches.map((m) => (
-                <div key={m.listing.id}>
-                  <div className="rounded-xl border border-border bg-card p-4" style={{ boxShadow: "var(--shadow-surface)" }}>
-                    <p className="text-sm font-semibold text-link">{t("ai.whyMatches")}</p>
-                    <ul className="mt-2 space-y-1.5">
-                      {m.reasons.map((r) => (
-                        <li key={r} className="flex gap-2 text-sm text-foreground">
-                          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-link" aria-hidden="true" /> {r}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-3">
-                    <ListingCard listing={m.listing} />
-                  </div>
-                </div>
-              ))}
-              <SampleDataNote />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  // COMPACT (floating bubble): one single scrollable column holds conversation,
-  // controls and results so nothing is clipped by the fixed-height panel.
-  if (compact) {
-    return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
-        {header}
-        {progress}
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-          {conversation}
-          {controls}
-          {results}
-        </div>
-      </div>
-    );
-  }
-
-  // PAGE variant: two-column layout (chat left, results right) on desktop.
-  return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-      <div className="lg:col-span-2">
-        <div
-          className="flex h-[600px] flex-col overflow-hidden rounded-2xl border border-border bg-card lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]"
-          style={{ boxShadow: "var(--shadow-elevated)" }}
-        >
-          {header}
-          {progress}
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-            {messages.map((m, i) => (
-              <div key={i} className={cn("flex", m.from === "user" ? "justify-end" : "justify-start")}>
-                <p
-                  className={cn(
-                    "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                    m.from === "user" ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-tl-sm bg-muted text-foreground",
-                  )}
-                >
-                  {m.text}
-                </p>
-              </div>
-            ))}
-          </div>
-          {controls}
-        </div>
-      </div>
-      <div className="lg:col-span-3">{results}</div>
-    </div>
-  );
+  const skip=<Chip selected={false} onClick={()=>next(step==="duration"?{duration:null}:step==="bedrooms"?{bedrooms:null}:step==="furnishing"?{furnishing:null}:{moveIn:""})}>{t("ai.noPreference")}</Chip>;
+  const controls= <div className="space-y-3">
+    {step==="intro"&&<Button className="w-full whitespace-normal" onClick={()=>next()}>{t("ai.start")} <ArrowRight/></Button>}
+    {step==="budget"&&<><div className="flex flex-wrap gap-2">{[400,600,800,1200].map(b=><Chip key={b} selected={budget===String(b)} onClick={()=>setBudget(String(b))}>${b}</Chip>)}<Chip selected={budget==="flex"} onClick={()=>setBudget("flex")}>{t("ai.flexible")}</Chip></div><label htmlFor={`${id}-budget`} className="text-sm font-medium">{t("ai.budgetUSD")}</label><Input id={`${id}-budget`} className="min-w-0" type="number" min="1" max="1000000" value={budget==="flex"?"":budget} onChange={e=>setBudget(e.target.value)} placeholder={t("ai.budgetPlaceholder")}/><Button className="w-full" disabled={budget!=="flex"&&!validMatchBudget(budget)} onClick={()=>next({budget:budget==="flex"?null:Number(budget)})}>{t("common.next")}</Button></>}
+    {step==="neighborhood"&&<div className="flex flex-wrap gap-2">{labels.neighborhoods.map(n=><Chip key={n.id} selected={prefs.neighborhood===n.id} onClick={()=>next({neighborhood:n.id})}>{n.name}</Chip>)}<Chip selected={prefs.neighborhood==="any"} onClick={()=>next({neighborhood:"any"})}>{t("ai.anywhere")}</Chip></div>}
+    {step==="duration"&&<div className="flex flex-wrap gap-2">{Array.from({length:12},(_,i)=>i+1).map(n=><Chip key={n} selected={prefs.duration===n} onClick={()=>next({duration:n})}>{t("ai.userMonths",{count:n})}</Chip>)}{skip}</div>}
+    {step==="moveIn"&&<><label htmlFor={`${id}-date`} className="text-sm">{t("ai.askMoveIn")}</label><Input id={`${id}-date`} className="min-w-0" type="date" min={vietnamToday()} value={date} onChange={e=>setDate(e.target.value)}/><div className="flex flex-wrap gap-2"><Button disabled={!validMatchDate(date)} onClick={()=>next({moveIn:date})}>{t("common.next")}</Button>{skip}</div></>}
+    {step==="bedrooms"&&<div className="flex flex-wrap gap-2">{[1,2,3].map(n=><Chip key={n} selected={prefs.bedrooms===n} onClick={()=>next({bedrooms:n})}>{n===3?t("ai.userBedrooms3"):t("ai.userBedrooms",{count:n})}</Chip>)}{skip}</div>}
+    {step==="furnishing"&&<div className="flex flex-wrap gap-2">{(["furnished","semi-furnished","unfurnished"] as const).map(f=><Chip key={f} selected={prefs.furnishing===f} onClick={()=>next({furnishing:f})}>{labels.furnishing[f]}</Chip>)}{skip}</div>}
+    {step==="lifestyle"&&<><div className="flex flex-wrap gap-2">{(["remote","beach"] as const).map(tag=><Chip key={tag} selected={prefs.lifestyle.includes(tag)} onClick={()=>setPrefs(p=>({...p,lifestyle:p.lifestyle.includes(tag)?p.lifestyle.filter(x=>x!==tag):[...p.lifestyle,tag]}))}>{t(`ai.tag.${tag}`)}</Chip>)}</div><p className="text-xs text-muted-foreground">{t("ai.lifestyleNote")}</p><Button className="w-full whitespace-normal" onClick={()=>next()}>{t("common.continue")}</Button></>}
+    {step==="amenities"&&<><div className="flex flex-wrap gap-2">{labels.amenities.map(a=><Chip key={a.id} selected={prefs.amenities.includes(a.id)} onClick={()=>setPrefs(p=>({...p,amenities:p.amenities.includes(a.id)?p.amenities.filter(x=>x!==a.id):[...p.amenities,a.id]}))}>{labels.amenity[a.id]}</Chip>)}</div><p className="text-xs text-muted-foreground">{t("ai.amenitiesNote")}</p><Button className="w-full" onClick={()=>{setStatus("loading");next();}}>{t("ai.showMatches")} <ArrowRight/></Button></>}
+    {idx>1&&step!=="done"&&<Button className="w-full" variant="ghost" onClick={previous}>{t("ai.back")}</Button>}
+  </div>;
+  const chat=<div className="min-w-0 space-y-4 p-4">
+    {idx>1&&<details className="rounded-xl border border-border bg-card p-3"><summary className="cursor-pointer text-sm font-medium">{pick("Your previous answers","Câu trả lời trước đó")} ({idx-1})</summary><dl className="mt-3 space-y-2">{steps.slice(1,idx).map(s=><div key={s} className="border-t border-border pt-2 text-sm"><dt className="text-xs text-muted-foreground">{t(questions[s])}</dt><dd className="mt-1 break-words font-medium">{answers[s]}</dd></div>)}</dl></details>}
+    <div ref={questionHeading} tabIndex={-1} className="rounded-2xl bg-[#E9EFE9] p-4 text-base font-medium text-[#365844] outline-none break-words">{t(questions[step])}</div>
+    {controls}
+  </div>;
+  const result=<section className="min-w-0 space-y-4 p-4" aria-busy={status==="loading"}>
+    <h2 ref={resultsHeading} tabIndex={-1} className="scroll-mt-20 font-heading text-2xl font-medium outline-none">{t("ai.recommended")}</h2>
+    <p className="text-sm text-muted-foreground" role="status">{status==="loading"?t("ai.loadingResults"):status==="error"?t("ai.loadError"):matches.length===1?t("ai.matchesCountOne"):t("ai.matchesCount",{count:matches.length})}</p>
+    {status==="error"&&<Button onClick={()=>setRequest(n=>n+1)}>{t("ai.retry")}</Button>}
+    {status==="ready"&&matches.length===0&&<div className="rounded-xl border border-border p-4 text-center"><MapPin className="mx-auto size-7 text-muted-foreground"/><h3 className="mt-2 font-semibold">{t("ai.noMatchesTitle")}</h3><p className="mt-2 text-sm">{t("ai.noMatchesHint")}</p></div>}
+    {status==="ready"&&matches.map(m=>{const l=m.listing;const reasons=[t("ai.availableReason"),prefs.budget!==null?t("ai.reason.budgetIn",{estimate:formatUSD(m.costs.estimatedMonthly,true),budget:formatUSD(prefs.budget,true)}):t("ai.knownMonthly",{estimate:formatUSD(m.costs.estimatedMonthly,true)})];if(prefs.moveIn)reasons.push(t("ai.dateReason",{date:fmtDate(l.availableFrom.slice(0,10))}));if(prefs.neighborhood&&prefs.neighborhood!=="any")reasons.push(t("ai.reason.area",{area:labels.neighborhood[l.neighborhood]}));if(prefs.duration!==null)reasons.push(t("ai.reason.duration",{months:prefs.duration,min:l.rentalDurationMonths[0],max:l.rentalDurationMonths[1]}));if(prefs.bedrooms!==null)reasons.push(t(l.bedrooms===prefs.bedrooms?"ai.reason.bedrooms":"ai.reason.bedroomsMore",{count:l.bedrooms,wanted:prefs.bedrooms}));if(prefs.furnishing)reasons.push(labels.furnishing[l.furnishing]);if(prefs.amenities.length)reasons.push(t("ai.reason.amenities",{list:prefs.amenities.map(a=>labels.amenity[a]).join(", ")}));if(m.remote)reasons.push(t("ai.reason.remote"));if(m.beach)reasons.push(t("ai.beachReason",{distance:m.distance!}));if(l.verificationBadge)reasons.push(t("ai.reason.verified"));return <article key={l.id} className="min-w-0 space-y-2"><ListingCard listing={l}/>{l.isSample&&<p className="text-xs font-semibold text-muted-foreground">{t("listing.demoData")}</p>}<div className="rounded-xl border border-border bg-[#E9EFE9] p-4 text-[#365844]"><p className="font-semibold text-sm">{t("ai.whyMatches")}</p><ul className="mt-2 space-y-1.5 text-sm">{reasons.map((r,i)=><li key={i} className="flex gap-2 break-words"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-link"/>{r}</li>)}</ul>{m.unknownMonthly>0&&<p className="mt-2 text-sm text-[#52616A]">{t("ai.unknownMonthly",{count:m.unknownMonthly})}</p>}{(prefs.lifestyle.includes("remote")&&!m.remote||prefs.lifestyle.includes("beach")&&!m.beach)&&<p className="mt-2 text-xs text-[#52616A]">{t("ai.softUnconfirmed")}</p>}</div></article>;})}
+    {matches.some(m=>m.listing.isSample)&&<SampleDataNote/>}
+    <p className="text-xs text-muted-foreground">{t("ai.snapshotNote")}</p>
+    <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>setStep("amenities")}>{t("ai.adjust")}</Button><Button variant="outline" onClick={restart}>{t("common.startOver")}</Button><Button asChild><Link to="/search">{t("ai.browseAll")}</Link></Button></div>
+  </section>;
+  const header=<div className="flex shrink-0 items-center gap-3 border-b border-border p-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Sparkles className="size-4"/></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{t("ai.title")}</p><p className="text-xs text-muted-foreground">{t("ai.subtitle")}</p></div><button type="button" onClick={restart} aria-label={t("common.startOver")} className="size-10 shrink-0 rounded-lg hover:bg-accent focus-visible:ring-2"><RotateCcw className="mx-auto size-4"/></button></div>;
+  const progress=<div className="shrink-0 border-b border-border px-4 py-2"><p className="mb-1 text-xs text-muted-foreground">{pick("Step", "Bước")} {Math.min(8,Math.max(0,idx))}/8</p><div className="flex gap-1" role="progressbar" aria-label={t("ai.title")} aria-valuemin={0} aria-valuemax={8} aria-valuenow={Math.min(8,Math.max(0,idx))}>{steps.slice(1,-1).map((s,i)=><span key={s} className={cn("h-1 flex-1 rounded-full",idx>i?"bg-[#829987]":"bg-muted")}/>)}</div></div>;
+  if(compact)return <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">{header}{progress}<div ref={content} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">{step==="done"?result:chat}</div></div>;
+  return <div className="grid min-w-0 gap-6 lg:grid-cols-5"><div className="min-w-0 lg:col-span-2"><div className="rounded-2xl border border-border bg-card lg:sticky lg:top-20 lg:flex lg:max-h-[calc(100dvh-6rem)] lg:flex-col">{header}{progress}<div ref={content} className="min-h-0 min-w-0 lg:overflow-y-auto lg:overscroll-contain">{chat}</div></div></div><div className="min-w-0 lg:col-span-3">{step==="done"?result:<div className="rounded-xl border border-border bg-card p-4"><h2 className="font-semibold">{t("ai.howItWorks")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("ai.prototypeNote")}</p><p className="mt-2 text-sm text-muted-foreground">{t("ai.howItWorks3")}</p></div>}</div></div>;
 }

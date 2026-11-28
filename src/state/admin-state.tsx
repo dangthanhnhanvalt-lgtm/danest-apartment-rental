@@ -4,17 +4,15 @@ import {
   adminListingRepository,
   adminReportRepository,
   adminSettingsRepository,
-  adminUserRepository,
-  allInquiries,
-  computeKpis,
+  readAdminKpis,
   type AdminKpis,
 } from "~/api/admin";
+import { backendAccountsRepository } from "~/api/backend/accounts";
 import { DEFAULT_ADMIN_SETTINGS } from "~/lib/availability";
 import type {
   AdminSettings,
   AdminUser,
   AuditLogEntry,
-  Inquiry,
   Listing,
   ListingStatus,
   Report,
@@ -26,50 +24,65 @@ interface AdminValue {
   reports: Report[];
   audit: AuditLogEntry[];
   settings: AdminSettings;
-  inquiries: Inquiry[];
-  kpis: AdminKpis;
+  kpis: AdminKpis | null;
+  loadError: string;
+  reconfirm: (id:string,reason:string)=>Promise<void>;
   loading: boolean;
+  usersError: string;
   refresh: () => Promise<void>;
   decide: (id: string, status: ListingStatus, reason: string, action: AuditLogEntry["action"]) => Promise<void>;
   verify: (id: string, badge: boolean, reason: string) => Promise<void>;
-  setUserStatus: (id: string, status: AdminUser["status"]) => Promise<void>;
+  setUserStatus: (id: string, status: AdminUser["status"], reason: string) => Promise<void>;
   updateReport: (id: string, patch: Partial<Report>) => Promise<void>;
-  saveSettings: (settings: AdminSettings) => Promise<void>;
+  saveSettings: (settings: AdminSettings, reason:string) => Promise<void>;
 }
 
 const AdminContext = createContext<AdminValue | null>(null);
 
 export function AdminProvider({ children }: { children: ReactNode }) {
+  const [kpis,setKpis] = useState<AdminKpis|null>(null);
+  const [loadError,setLoadError] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
   const [settings, setSettings] = useState<AdminSettings>(DEFAULT_ADMIN_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
 
   const load = useCallback(async () => {
-    const [l, u, r, a, s] = await Promise.all([
+    setUsersError("");
+    setLoadError("");
+    try {
+    const [l, u, r, a, s, k] = await Promise.all([
       adminListingRepository.list(),
-      adminUserRepository.list(),
+      backendAccountsRepository.list().catch((err) => {
+        setUsersError(err?.message ?? String(err));
+        return [] as AdminUser[];
+      }),
       adminReportRepository.list(),
-      adminAuditRepository.list(),
+      adminAuditRepository.list(5),
       adminSettingsRepository.get(),
+      readAdminKpis(),
     ]);
+    setKpis(k);
     setListings(l);
     setUsers(u);
     setReports(r);
     setAudit(a);
     setSettings(s);
-    setLoading(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : String(err));
+      setKpis(null);
+      throw err;
+    } finally {setLoading(false);}
   }, []);
 
   useEffect(() => {
-    void load();
+    void load().catch(() => {});
   }, [load]);
 
-  const inquiries = useMemo(() => allInquiries(), [listings]);
-
-  const kpis = useMemo(() => computeKpis(listings, users, inquiries, settings), [listings, users, inquiries, settings]);
+  const reconfirm = useCallback(async (id:string,reason:string)=>{await adminListingRepository.reconfirmAvailability(id,reason);await load();},[load]);
 
   const decide = useCallback(
     async (id: string, status: ListingStatus, reason: string, action: AuditLogEntry["action"]) => {
@@ -88,8 +101,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const setUserStatus = useCallback(
-    async (id: string, status: AdminUser["status"]) => {
-      await adminUserRepository.setStatus(id, status);
+    async (id: string, status: AdminUser["status"], reason: string) => {
+      await backendAccountsRepository.setStatus(id, status, reason);
       await load();
     },
     [load],
@@ -104,16 +117,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
 
   const saveSettings = useCallback(
-    async (next: AdminSettings) => {
-      await adminSettingsRepository.set(next);
+    async (next: AdminSettings, reason:string) => {
+      await adminSettingsRepository.set(next,reason);
       await load();
     },
     [load],
   );
 
   const value = useMemo<AdminValue>(
-    () => ({ listings, users, reports, audit, settings, inquiries, kpis, loading, refresh: load, decide, verify, setUserStatus, updateReport, saveSettings }),
-    [listings, users, reports, audit, settings, inquiries, kpis, loading, load, decide, verify, setUserStatus, updateReport, saveSettings],
+    () => ({ listings, users, reports, audit, settings, kpis, loadError, reconfirm, loading, usersError, refresh: load, decide, verify, setUserStatus, updateReport, saveSettings }),
+    [listings, users, reports, audit, settings, kpis, loadError, reconfirm, loading, usersError, load, decide, verify, setUserStatus, updateReport, saveSettings],
   );
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

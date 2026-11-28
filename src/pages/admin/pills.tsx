@@ -9,15 +9,15 @@ export function Pill({ tone, children, className }: { tone: PillTone; children: 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        tone === "done" && "border-transparent bg-accent text-link",
-        tone === "neutral" && "border-border bg-muted text-muted-foreground",
-        tone === "attention" && "border-warning/20 bg-warning/10 text-warning",
-        tone === "danger" && "border-destructive/20 bg-destructive/10 text-destructive",
+        "inline-flex items-center gap-1 max-w-full whitespace-normal rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        tone === "done" && "border-transparent bg-[#E9EFE9] text-[#365844]",
+        tone === "neutral" && "border-transparent bg-[#F0EFEC] text-[#595952]",
+        tone === "attention" && "border-transparent bg-[#F7EFE0] text-[#80581C]",
+        tone === "danger" && "border-transparent bg-[#F5E7E5] text-[#994D48]",
         className,
       )}
     >
-      {children}
+      <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true"/>{children}
     </span>
   );
 }

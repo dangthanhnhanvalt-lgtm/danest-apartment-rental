@@ -1,6 +1,6 @@
 export type ID = string;
 
-export type NeighborhoodId = "an-thuong" | "my-an" | "son-tra" | "han-river";
+export type NeighborhoodId = string;
 
 export interface Neighborhood {
   id: NeighborhoodId;
@@ -15,6 +15,7 @@ export interface Neighborhood {
 export interface GeoPoint {
   lat: number;
   lng: number;
+  precision?: "owner-selected" | "approximate";
 }
 
 export type ListingType = "apartment" | "studio" | "serviced-apartment" | "penthouse";
@@ -30,19 +31,7 @@ export type ListingStatus =
   | "hidden"
   | "archived";
 
-export type AmenityId =
-  | "wifi"
-  | "air-conditioning"
-  | "washing-machine"
-  | "kitchen"
-  | "pool"
-  | "gym"
-  | "balcony"
-  | "parking"
-  | "elevator"
-  | "workspace"
-  | "pet-friendly"
-  | "sea-view";
+export type AmenityId = string;
 
 export interface Amenity {
   id: AmenityId;
@@ -104,12 +93,15 @@ export interface LandlordSummary {
   memberSince: string;
 }
 
+export type AccountStatus = "pending" | "active" | "rejected" | "suspended";
+
 export interface User {
   id: ID;
   name: string;
   email: string;
   role: "tenant" | "landlord" | "admin";
   avatarInitials: string;
+  accountStatus?: AccountStatus;
 }
 
 export type ModerationResult = "passed" | "needs-attention" | "rejected" | "incomplete";
@@ -139,8 +131,9 @@ export interface AdminUser {
   id: ID;
   name: string;
   email: string;
-  role: "tenant" | "landlord";
-  status: "active" | "suspended";
+  role: "tenant" | "landlord" | "admin";
+  status: AccountStatus;
+  approvedAt?: string | null;
   joinedAt: string;
   listings: number;
   inquiries: number;
@@ -167,20 +160,10 @@ export interface AdminSettings {
 
 export interface AuditLogEntry {
   id: ID;
-  action:
-    | "listing-approved"
-    | "listing-rejected"
-    | "listing-corrections-requested"
-    | "listing-hidden"
-    | "listing-restored"
-    | "listing-submitted"
-    | "listing-status-changed"
-    | "account-suspended"
-    | "account-activated"
-    | "report-resolved"
-    | "report-reopened"
-    | "settings-updated"
-    | "availability-reconfirmed";
+  action: string;
+  oldValues?: unknown;
+  newValues?: unknown;
+  isSeeded?: boolean;
   actor: string;
   target: string;
   reason: string;
@@ -208,6 +191,7 @@ export interface Listing {
   availableFrom: string;
   rentalDurationMonths: [number, number];
   images: string[];
+  imageRecords?: { id: string; url: string | null }[];
   verification: Verification;
   verificationBadge: boolean;
   costs: RentalCosts;
@@ -220,9 +204,11 @@ export interface Listing {
   moderation: ListingModeration;
   lastAvailabilityConfirmedAt: string;
   availabilityReminderSentAt: string | null;
+  availabilityHiddenAt?: string | null;
   featured: boolean;
   sponsored: boolean;
   listedAt: string;
+  updatedAt?: string;
   views: number;
   inquiries: number;
   isSample: boolean;
@@ -244,7 +230,7 @@ export interface ListingFilters {
   checkIn: string | null;
 }
 
-export type SortKey = "recommended" | "price-asc" | "price-desc" | "newest";
+export type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "updated-asc" | "updated-desc";
 
 export interface ListingQuery extends Partial<ListingFilters> {
   sort?: SortKey;
@@ -319,7 +305,13 @@ export interface ListingDraft {
   maxMonths: string;
   availableFrom: string;
   images: string[];
-  extraCosts: { label: string; amount: string; state: CostState }[];
+  type?: ListingType;
+  location?: GeoPoint;
+  floorLevel?: string;
+  availability?: Availability;
+  paymentDay?: string;
+  rentalNotes?: string;
+  extraCosts: { label: string; amount: string; state: CostState; unit?: string; cadence?: CostCadence }[];
 }
 
 export interface ListingModerationOverride {

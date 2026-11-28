@@ -1,0 +1,6 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const src=fs.readFileSync(path.join(__dirname,'../src/lib/reporting.ts'),'utf8');const js=ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const m={exports:{}};new Function('exports','module','require',js)(m.exports,m,require);
+const {csvCell,makeCsv,sumMetric,reportCsv,vietnamDay}=m.exports;
+assert.equal(csvCell(null),'""');assert.equal(csvCell(0),'"0"');assert.equal(csvCell('a,"b"'),'"a,""b"""');assert.equal(csvCell(' =cmd'),'"\' =cmd"');assert.equal(csvCell('\tplain'),'"\'\tplain"');assert.equal(csvCell(-1),'"-1"');assert.equal(makeCsv([['A','B'],[1,null]]),'\uFEFF"A","B"\r\n"1",""');
+const r={day:'2026-11-27',inquiries:1,firstViewings:0,ordinaryViews:null,sponsoredViews:0,ordinaryInquiries:null,sponsoredInquiries:0};assert.equal(sumMetric([r],'ordinaryViews'),null);assert.equal(sumMetric([r],'sponsoredViews'),0);assert.equal(sumMetric([r,{...r,ordinaryViews:2}],'ordinaryViews'),2);assert.ok(reportCsv([r]).endsWith('"2026-11-27","1","0","","0","","0"'));assert.equal(vietnamDay('2026-11-26T18:00:00Z'),'2026-11-27');
+console.log('PASS: 12 D2 CSV/aggregation/date assertions (offline)');

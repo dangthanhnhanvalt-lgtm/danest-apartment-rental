@@ -1,0 +1,1 @@
+SELECT j.jobname,j.schedule,j.active,d.status,d.start_time,d.end_time,d.return_message FROM cron.job j LEFT JOIN LATERAL (SELECT status,start_time,end_time,return_message FROM cron.job_run_details WHERE jobid=j.jobid ORDER BY start_time DESC LIMIT 5) d ON true WHERE j.jobname='danest-maintenance-09c1';

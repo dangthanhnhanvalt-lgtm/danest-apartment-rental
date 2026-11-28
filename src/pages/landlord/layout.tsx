@@ -1,4 +1,5 @@
 import {
+  Bell,
   BarChart3,
   CalendarDays,
   ChevronLeft,
@@ -11,12 +12,12 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
+import {useNoticeCounts} from "~/api/backend/live-notices";
 import { useState } from "react";
 import { Link, useNavigate } from "~/lib/router";
 import { Logo } from "~/components/logo";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
-import { LANDLORD_PROFILE } from "~/data/listings";
 import { useAppState } from "~/state/app-state";
 import { OverviewPage } from "~/pages/landlord/overview";
 import { PropertiesPage } from "~/pages/landlord/properties";
@@ -37,7 +38,7 @@ const NAV = [
   { to: "/landlord/settings", labelKey: "landlord.nav.settings", icon: Settings },
 ];
 
-function NavList({ path, onNavigate }: { path: string; onNavigate?: () => void }) {
+function NavList({ path, onNavigate, unread }: { path: string; onNavigate?: () => void; unread:number }) {
   const navigate = useNavigate();
   const { t } = useI18n();
   return (
@@ -69,12 +70,12 @@ function NavList({ path, onNavigate }: { path: string; onNavigate?: () => void }
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                ? "bg-[#E7F6FD] text-[#087EBD] font-semibold"
                 : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             )}
           >
             <item.icon className="size-4" aria-hidden="true" />
-            {t(item.labelKey)}
+            {t(item.labelKey)} {item.to==="/landlord/requests"&&unread>0&&<span className="ml-auto rounded-full bg-primary px-2 text-xs text-primary-foreground">{unread}</span>}
           </Link>
         );
       })}
@@ -127,13 +128,26 @@ function LandlordGate({ mode }: { mode: "guest" | "renter" }) {
 
 export function LandlordLayout({ path }: { path: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { session, isLandlord } = useAppState();
-  const { t } = useI18n();
+  const { session, isLandlord, backendReady, logout } = useAppState();
+  const { t, pick } = useI18n();
+  const counts=useNoticeCounts(session?.user.accountStatus==="active"&&isLandlord?session.user.id:undefined);
 
   // Client-side gate (NOT server RBAC — see RBAC-SPEC §7). A guest must log in;
   // a signed-in renter is told this area is for landlord accounts.
+  if (!backendReady) return <main className="p-8 text-center">{pick("Checking account…", "Đang kiểm tra tài khoản…")}</main>;
   if (!session) return <LandlordGate mode="guest" />;
   if (!isLandlord) return <LandlordGate mode="renter" />;
+  if (session.user.accountStatus !== "active") return (
+    <main className="mx-auto max-w-xl space-y-5 px-4 py-24 text-center">
+      <h1 className="font-heading text-3xl">{pick("Account awaiting approval", "Tài khoản đang chờ xét duyệt")}</h1>
+      <p>{pick("An administrator must approve your landlord account before you can post listings. Return to this page after approval.", "Admin phải xét duyệt tài khoản chủ nhà trước khi bạn được đăng tin. Hãy quay lại trang này sau khi được duyệt.")}</p>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Button asChild><Link to="/search">{t("common.browseApartments")}</Link></Button>
+        <Button variant="outline" onClick={() => window.location.reload()}>{pick("Check again", "Kiểm tra lại")}</Button>
+        <Button variant="ghost" onClick={() => { void logout().then(() => window.location.assign("/login")).catch((e) => alert(String(e))); }}>{pick("Sign out", "Đăng xuất")}</Button>
+      </div>
+    </main>
+  );
 
   const sidebarInner = (
     <>
@@ -142,9 +156,9 @@ export function LandlordLayout({ path }: { path: string }) {
       </div>
       <div className="border-b border-sidebar-border px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("landlord.layout.landlord")}</p>
-        <p className="mt-0.5 text-sm font-medium text-sidebar-foreground">{session?.user.name || LANDLORD_PROFILE.displayName}</p>
+        <p className="mt-0.5 text-sm font-medium text-sidebar-foreground">{session?.user.name || "—"}</p>
       </div>
-      <NavList path={path} onNavigate={() => setDrawerOpen(false)} />
+      <NavList unread={counts.messages} path={path} onNavigate={() => setDrawerOpen(false)} />
       <div className="shrink-0 border-t border-sidebar-border p-3">
         <Link
           to="/"
@@ -158,8 +172,8 @@ export function LandlordLayout({ path }: { path: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+    <div className="danest-landlord-surface danest-landlord-v14 min-h-screen bg-white">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         {sidebarInner}
       </aside>
 
@@ -171,7 +185,7 @@ export function LandlordLayout({ path }: { path: string }) {
             onClick={() => setDrawerOpen(false)}
             aria-hidden="true"
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[90vw] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
             <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
               <Logo />
               <button
@@ -188,8 +202,8 @@ export function LandlordLayout({ path }: { path: string }) {
         </div>
       ) : null}
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background px-4 md:px-6">
+      <div className="lg:pl-72">
+        <header className="danest-landlord-topbar sticky top-0 z-30 flex h-16 items-center gap-1.5 border-b border-border bg-card px-2 sm:gap-3 sm:px-4 md:px-6">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
@@ -198,11 +212,11 @@ export function LandlordLayout({ path }: { path: string }) {
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>
-          <p className="text-sm font-semibold text-foreground">{t("landlord.layout.title")}</p>
+          <p className="min-w-0 truncate text-sm font-semibold text-foreground">{t("landlord.layout.title")}</p>
           <span className="hidden rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex">
             {t("landlord.layout.demoAccount")}
           </span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2"><Link to="/notifications" className="relative flex size-10 items-center justify-center rounded-lg hover:bg-accent" aria-label={pick("Notifications","Thông báo")}><Bell className="size-5"/>{counts.notifications>0&&<span className="absolute right-0 top-0 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{counts.notifications}</span>}</Link>
             <Link
               to="/search"
               className="inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -215,7 +229,7 @@ export function LandlordLayout({ path }: { path: string }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl p-4 md:p-6 lg:p-8">{renderPage(path)}</main>
+        <main className="danest-landlord-content mx-auto w-full max-w-[1500px] p-4 md:p-6 lg:p-9"><div key={session.user.id}>{renderPage(path)}</div></main>
       </div>
     </div>
   );

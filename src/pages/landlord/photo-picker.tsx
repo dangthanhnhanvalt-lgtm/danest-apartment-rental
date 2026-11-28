@@ -1,91 +1,13 @@
-import { CheckCircle2 } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { UploadCloud } from "lucide-react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useI18n } from "~/i18n/language-context";
-
-export const SAMPLE_PHOTOS = Array.from({ length: 10 }, (_, i) => `/images/l${i + 1}.jpg`);
-
-export function PhotoPicker({
-  selected,
-  onChange,
-  error,
-}: {
-  selected: string[];
-  onChange: (images: string[]) => void;
-  error?: string;
-}) {
-  const { t } = useI18n();
-  const toggle = (photo: string) => {
-    if (selected.includes(photo)) {
-      onChange(selected.filter((p) => p !== photo));
-    } else {
-      onChange([...selected, photo]);
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        {t("landlord.photo.hint")}
-      </p>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {SAMPLE_PHOTOS.map((photo, index) => {
-          const isSelected = selected.includes(photo);
-          return (
-            <li key={photo}>
-              <button
-                type="button"
-                onClick={() => toggle(photo)}
-                aria-pressed={isSelected}
-                aria-label={t(isSelected ? "landlord.photo.remove" : "landlord.photo.add", { number: index + 1 })}
-                className={cn(
-                  "group relative block w-full overflow-hidden rounded-lg border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isSelected ? "border-primary-strong" : "border-input hover:border-primary-hover",
-                )}
-              >
-                <img
-                  src={photo}
-                  alt={t("landlord.photo.alt", { number: index + 1 })}
-                  className="aspect-[4/3] w-full object-cover"
-                  loading="lazy"
-                />
-                {isSelected ? (
-                  <span className="absolute right-2 top-2 rounded-full bg-card text-link">
-                    <CheckCircle2 className="size-5" aria-hidden="true" />
-                  </span>
-                ) : null}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {selected.length > 0 ? (
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{t("landlord.photo.selectedCount", { count: selected.length })}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {selected.map((photo, index) => (
-              <div key={photo} className="relative">
-                <img
-                  src={photo}
-                  alt={t("landlord.photo.selectedAlt", { number: index + 1 })}
-                  className="h-16 w-24 rounded-md border border-border object-cover"
-                  loading="lazy"
-                />
-                {index === 0 ? (
-                  <span className="absolute left-1 top-1 rounded bg-card px-1.5 py-0.5 text-[10px] font-semibold text-link">
-                    {t("landlord.photo.cover")}
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
+import { Button } from "~/components/ui/button";
+type Photo={id:string;url:string|null};
+function move<T>(rows:T[],from:number,to:number){if(to<0||to>=rows.length)return rows;const out=[...rows];const [item]=out.splice(from,1);out.splice(to,0,item);return out;}
+export function PhotoPicker({selected,setSelected,files,setFiles,busy,error}:{selected:Photo[];setSelected:Dispatch<SetStateAction<Photo[]>>;files:File[];setFiles:Dispatch<SetStateAction<File[]>>;busy:boolean;error?:string}) {
+ const {pick}=useI18n();const [warning,setWarning]=useState("");const [previews,setPreviews]=useState<string[]>([]);
+ useEffect(()=>{const urls=files.map(f=>URL.createObjectURL(f));setPreviews(urls);return()=>urls.forEach(u=>URL.revokeObjectURL(u));},[files]);
+ return <div className="space-y-3"><p className="text-sm text-muted-foreground">{pick("JPEG, PNG or WEBP, max 5 MB each / 30 photos. The first saved photo is the cover. Changes apply on save; newly uploaded photos follow existing ones.","JPEG, PNG hoặc WEBP, tối đa 5 MB/ảnh, 30 ảnh. Ảnh đầu tiên là ảnh đại diện. Thay đổi áp dụng khi lưu; ảnh mới nằm sau ảnh đã lưu.")}</p>
+ <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-[#829987] bg-muted/30 p-5 text-center"><UploadCloud className="size-7 text-muted-foreground" aria-hidden="true"/><span className="font-medium">{pick("Choose photos","Chọn ảnh")}</span><input className="max-w-full text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground" aria-label={pick("Choose photos","Chọn ảnh")} type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e=>{const added=Array.from(e.target.files??[]);e.target.value="";if(added.some(f=>!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size===0||f.size>5*1024*1024)||selected.length+files.length+added.length>30){setWarning(pick("Invalid file or more than 30 photos.","File không hợp lệ hoặc vượt quá 30 ảnh."));return;}setWarning("");setFiles(prev=>[...prev,...added]);}}/></label>
+ <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{selected.map((photo,i)=><div key={photo.id} className="space-y-1 rounded border border-border p-2">{photo.url?<img src={photo.url} alt={pick("Saved photo","Ảnh đã lưu")} className="aspect-[4/3] w-full rounded object-cover"/>:<div className="aspect-[4/3] grid place-items-center text-xs bg-muted">{pick("Preview unavailable","Không có ảnh xem trước")}</div>}<p className="text-xs">{i===0?pick("Cover","Ảnh đại diện"):`#${i+1}`}</p><div className="flex flex-wrap gap-1"><Button type="button" size="sm" variant="outline" disabled={busy||i===0} onClick={()=>setSelected(prev=>move(prev,i,i-1))}>↑</Button><Button type="button" size="sm" variant="outline" disabled={busy||i===selected.length-1} onClick={()=>setSelected(prev=>move(prev,i,i+1))}>↓</Button><Button type="button" size="sm" variant="ghost" disabled={busy||i===0} onClick={()=>setSelected(prev=>move(prev,i,0))}>{pick("Cover","Đại diện")}</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={()=>setSelected(prev=>prev.filter(x=>x.id!==photo.id))}>{pick("Remove","Bỏ ảnh")}</Button></div></div>)}{previews.map((u,i)=><div key={u} className="space-y-1 rounded border border-border p-2"><img src={u} alt={files[i]?.name??""} className="aspect-[4/3] w-full rounded object-cover"/><p className="text-xs">{pick("New photo","Ảnh mới")}</p><div className="flex flex-wrap gap-1"><Button type="button" size="sm" variant="outline" disabled={busy||i===0} onClick={()=>setFiles(prev=>move(prev,i,i-1))}>↑</Button><Button type="button" size="sm" variant="outline" disabled={busy||i===files.length-1} onClick={()=>setFiles(prev=>move(prev,i,i+1))}>↓</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={()=>setFiles(prev=>prev.filter((_,j)=>j!==i))}>{pick("Remove","Bỏ ảnh")}</Button></div></div>)}</div>{(warning||error)&&<p role="alert" className="text-sm text-destructive">{warning||error}</p>}</div>;
 }

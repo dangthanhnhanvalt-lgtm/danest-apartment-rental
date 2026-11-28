@@ -2,7 +2,6 @@ import { SAMPLE_INQUIRIES } from "~/data/landlord";
 import { SAMPLE_LISTINGS_WITH_OPS as SAMPLE_LISTINGS } from "~/data/listings";
 import { recallRole, rememberRole } from "~/api/backend/role-map";
 import { todayISO } from "~/lib/format";
-import { DEFAULT_ADMIN_SETTINGS, availabilityStatus } from "~/lib/availability";
 import type { Inquiry, InquiryStatusEvent, Listing, ListingDraft, ListingQuery, Session, User } from "~/types";
 
 /** Repository contract. A real backend provider implements this same interface. */
@@ -64,7 +63,7 @@ function delay<T>(value: T): Promise<T> {
 export function applyQuery(listings: Listing[], query: ListingQuery = {}): Listing[] {
   const q = query.q?.trim().toLowerCase() ?? "";
   let result = listings.filter(
-    (l) => l.status === "published" && availabilityStatus(l, DEFAULT_ADMIN_SETTINGS).state !== "hidden",
+    (l) => l.status === "published",
   );
 
   if (query.ids) {
@@ -101,6 +100,15 @@ export function applyQuery(listings: Listing[], query: ListingQuery = {}): Listi
       break;
     case "price-desc":
       result = [...result].sort((a, b) => b.monthlyRent - a.monthlyRent);
+      break;
+    case "updated-asc":
+    case "updated-desc":
+      result = [...result].sort((a,b)=>{
+        const at=Date.parse(a.updatedAt??""),bt=Date.parse(b.updatedAt??"");
+        if(!Number.isFinite(at)) return Number.isFinite(bt)?1:0;
+        if(!Number.isFinite(bt)) return -1;
+        return query.sort==="updated-asc"?at-bt:bt-at;
+      });
       break;
     case "newest":
       result = [...result].sort((a, b) => b.listedAt.localeCompare(a.listedAt));
@@ -343,16 +351,16 @@ export function draftToListing(draft: ListingDraft, landlordId: string): Listing
     description: draft.description,
     neighborhood: (draft.neighborhood || "an-thuong") as Listing["neighborhood"],
     address: draft.address,
-    location: { lat: 16.051, lng: 108.243 },
-    type: "apartment",
+    location: draft.location ?? { lat: 16.051, lng: 108.243, precision: "approximate" },
+    type: draft.type ?? (Number(draft.bedrooms) === 0 ? "studio" : "apartment"),
     monthlyRent: rent,
-    bedrooms: Number(draft.bedrooms) || 1,
+    bedrooms: Number(draft.bedrooms),
     bathrooms: Number(draft.bathrooms) || 1,
     floorArea: Number(draft.floorArea) || 40,
-    floorLevel: "—",
+    floorLevel: draft.floorLevel?.trim() || "—",
     furnishing: (draft.furnishing || "furnished") as Listing["furnishing"],
     amenities: draft.amenities,
-    availability: "available",
+    availability: draft.availability??"available",
     availableFrom: draft.availableFrom || todayISO(),
     rentalDurationMonths: [Number(draft.minMonths) || 1, Number(draft.maxMonths) || 12],
     images: draft.images.length > 0 ? draft.images : ["/images/l1.jpg"],
@@ -373,17 +381,17 @@ export function draftToListing(draft: ListingDraft, landlordId: string): Listing
         id: c.label.toLowerCase().replace(/\s+/g, "-"),
         label: c.label,
         amount: c.amount ? Number(c.amount) : null,
-        unit: "per month",
-        state: c.amount ? (c.state === "unknown" ? "unknown" : c.state === "fixed" ? "fixed" : "reported") : "unknown",
-        cadence: c.state === "fixed" && c.amount ? "monthly" : "monthly",
+        unit: c.unit ?? "per month",
+        state: c.amount && c.state !== "unknown" ? c.state : "unknown",
+        cadence: c.cadence ?? "monthly",
       })),
     },
     rentalTerms: {
       minMonths: Number(draft.minMonths) || 1,
       maxMonths: Number(draft.maxMonths) || 12,
-      paymentDayOfMonth: 1,
+      paymentDayOfMonth: Number(draft.paymentDay) || 1,
       utilitiesIncluded: [],
-      notes: ["Utilities to be agreed with the landlord."],
+      notes: (draft.rentalNotes ?? "").split("\n").map(x=>x.trim()).filter(Boolean),
     },
     neighborhoodNotes: [],
     distanceToBeach: "To be confirmed",

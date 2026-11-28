@@ -7,6 +7,8 @@ export interface Filters {
   neighborhoods: NeighborhoodId[];
   minRent: string;
   maxRent: string;
+  minArea: string;
+  maxArea: string;
   duration: string;
   bedrooms: number | null;
   bathrooms: number | null;
@@ -24,6 +26,8 @@ export const EMPTY_FILTERS: Filters = {
   neighborhoods: [],
   minRent: "",
   maxRent: "",
+  minArea: "",
+  maxArea: "",
   duration: "",
   bedrooms: null,
   bathrooms: null,
@@ -42,17 +46,19 @@ export const SORT_LABEL: Record<SortKey, string> = {
   "price-asc": "Price: Low to High",
   "price-desc": "Price: High to Low",
   newest: "Newest Listings",
+  "updated-desc": "Recently updated",
+  "updated-asc": "Least recently updated",
 };
 
 export const NEIGHBORHOOD_IDS = NEIGHBORHOODS.map((n) => n.id);
 export const TYPE_KEYS = Object.keys(LISTING_TYPE_LABEL) as ListingType[];
 const AMENITY_IDS = AMENITIES.map((a) => a.id);
 
-export function parseFilters(query: URLSearchParams): Filters {
+export function parseFilters(query: URLSearchParams, areaIds: string[]=NEIGHBORHOOD_IDS, amenityIds: string[]=AMENITY_IDS): Filters {
   const list = (key: string) => (query.get(key) ?? "").split(",").filter(Boolean);
-  const neighborhoods = list("neighborhood").filter((n): n is NeighborhoodId => NEIGHBORHOOD_IDS.includes(n as NeighborhoodId));
+  const neighborhoods = list("neighborhood").filter((n): n is NeighborhoodId => areaIds.includes(n));
   const types = list("type").filter((t): t is ListingType => TYPE_KEYS.includes(t as ListingType));
-  const amenities = list("amenities").filter((a): a is AmenityId => AMENITY_IDS.includes(a as AmenityId));
+  const amenities = list("amenities").filter((a): a is AmenityId => amenityIds.includes(a));
   const bedrooms = Number(query.get("bedrooms"));
   const bathrooms = Number(query.get("bathrooms"));
   const furnishingRaw = query.get("furnishing") ?? "";
@@ -63,6 +69,8 @@ export function parseFilters(query: URLSearchParams): Filters {
     neighborhoods,
     minRent: query.get("minRent") ?? "",
     maxRent: query.get("maxRent") ?? "",
+    minArea: query.get("minArea") ?? "",
+    maxArea: query.get("maxArea") ?? "",
     duration: query.get("duration") ?? "",
     bedrooms: Number.isFinite(bedrooms) && bedrooms > 0 ? bedrooms : null,
     bathrooms: Number.isFinite(bathrooms) && bathrooms > 0 ? bathrooms : null,
@@ -86,6 +94,8 @@ export function toQuery(filters: Filters) {
     neighborhood: filters.neighborhoods.join(",") || null,
     minRent: filters.minRent || null,
     maxRent: filters.maxRent || null,
+    minArea: filters.minArea || null,
+    maxArea: filters.maxArea || null,
     duration: filters.duration || null,
     bedrooms: filters.bedrooms || null,
     bathrooms: filters.bathrooms || null,

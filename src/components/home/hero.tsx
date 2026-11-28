@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, CalendarDays, MapPin, Search, Sparkles, Wallet } from "lucide-react";
+import { CalendarDays, MapPin, Search, Sparkles, Wallet } from "lucide-react";
 import { buildSearchUrl, useNavigate } from "~/lib/router";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
@@ -32,39 +32,45 @@ export function Hero() {
   };
 
   return (
-    <section className="relative isolate overflow-hidden">
-      <img
-        src="/images/hero.jpg"
-        alt={t("home.heroAlt")}
-        className="absolute inset-0 -z-20 size-full object-cover"
-      />
-      <div className="absolute inset-0 -z-10" style={{ backgroundColor: "var(--overlay-bg)" }} aria-hidden="true" />
-      <div
-        className="absolute inset-x-0 bottom-0 -z-10 h-48"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent)" }}
-        aria-hidden="true"
-      />
-
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-24 lg:px-8 lg:pt-28">
-        <div className="max-w-2xl">
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/20 px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.16em] text-white backdrop-blur-sm">
-            <span className="size-1.5 rounded-full bg-white" aria-hidden="true" />
-            {t("home.heroBadge")}
-          </p>
-          <h1 className="mt-6 font-heading text-5xl font-medium leading-[1.02] text-white text-balance sm:text-6xl lg:text-7xl">
-            {t("home.heroTitleLine1")} <span className="italic">{t("home.heroTitleAccent")}</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-white">
-            {t("home.heroDesc")}
-          </p>
+    <section className="bg-background">
+      <div className="pb-10">
+        <div className="relative isolate min-h-[570px] w-full overflow-hidden bg-[#0D354B] text-white md:min-h-[650px]">
+          <img
+            src="/images/hero.jpg"
+            alt={t("home.heroAlt")}
+            className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
+            fetchPriority="high"
+          />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0B354D] via-[#0B354D]/90 to-transparent" />
+          <div className="mx-auto flex min-h-[570px] max-w-7xl flex-col justify-center px-6 pb-20 pt-14 sm:px-10 md:min-h-[650px] md:px-12 lg:px-16">
+            <div className="max-w-[850px]">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#A4E5ED]">{t("home.heroBadge")}</p>
+              <h1 className="mt-7 font-heading text-[clamp(3.3rem,6.2vw,6.6rem)] font-bold leading-[1.06] tracking-[-0.045em]">
+                {t("home.heroTitleLine1") === "Find Your Home in" ? (
+                  <>Find <span className="text-[#9CECF2]">Your Home</span><br />in <span className="text-[#7DDBE6]">Da Nang.</span></>
+                ) : (
+                  <>{t("home.heroTitleLine1")}<br /><span className="text-[#7DDBE6]">{t("home.heroTitleAccent")}</span></>
+                )}
+              </h1>
+              <p className="mt-6 max-w-[570px] text-base leading-relaxed text-white/90 md:text-lg">{t("home.heroDesc")}</p>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Button size="lg" className="bg-white px-5 text-[#12384D] hover:bg-[#E7F8FC]" onClick={() => navigate("/search")}>
+                  <Search aria-hidden="true" />{t("common.exploreApartments")}
+                </Button>
+                <Button size="lg" className="border border-[#8BDDEB] bg-[#078CC4] px-5 text-white hover:bg-[#0679A8]" onClick={() => navigate("/match")}>
+                  <Sparkles aria-hidden="true" />{t("home.aiButton")}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-
+        <div className="mx-auto max-w-7xl px-4 md:px-6 lg:px-8">
         <div
-          className="mt-10 rounded-2xl border border-border bg-card p-4 md:p-5"
-          style={{ boxShadow: "var(--shadow-overlay)" }}
+          className="relative z-10 mx-0 -mt-10 rounded-2xl border border-border bg-card p-4 md:-mt-8 md:mx-8 md:p-6"
+          style={{ boxShadow: "var(--shadow-elevated)" }}
         >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <div className="xl:col-span-2">
               <label htmlFor="hero-location" className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <MapPin className="size-3.5" aria-hidden="true" /> {t("home.location")}
               </label>
@@ -72,7 +78,7 @@ export function Hero() {
                 id="hero-location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 min-w-0 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">{t("home.allOfDaNang")}</option>
                 {labels.neighborhoods.map((n) => (
@@ -93,7 +99,7 @@ export function Hero() {
                 value={checkIn}
                 min={new Date().toISOString().slice(0, 10)}
                 onChange={(e) => setCheckIn(e.target.value)}
-                className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 min-w-0 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
 
@@ -105,7 +111,7 @@ export function Hero() {
                 id="hero-duration"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 min-w-0 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                   <option key={m} value={m}>
@@ -123,7 +129,7 @@ export function Hero() {
                 id="hero-budget"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
-                className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 min-w-0 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">{t("home.anyBudget")}</option>
                 {BUDGETS.map((b) => (
@@ -135,7 +141,7 @@ export function Hero() {
             </div>
 
             <div className="flex items-end">
-              <Button size="lg" className="h-11 w-full" onClick={search}>
+              <Button size="lg" className="h-11 w-full px-2 whitespace-normal" onClick={search}>
                 <Search className="size-4" aria-hidden="true" />
                 {t("home.searchApartments")}
               </Button>
@@ -172,23 +178,8 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-          <Button
-            size="lg"
-            onClick={() => navigate("/match")}
-            className="bg-primary text-primary-foreground hover:bg-primary hover:ring-2 hover:ring-primary-foreground hover:ring-offset-2 hover:ring-offset-transparent ring-offset-transparent"
-          >
-            <Sparkles className="size-4" aria-hidden="true" />
-            {t("home.aiButton")}
-          </Button>
-          <span className="text-sm text-white">{t("home.aiHint")}</span>
+        <p className="mt-3 text-center text-sm text-muted-foreground">{t("home.aiHint")}</p>
         </div>
-      </div>
-
-      <div className="pointer-events-none absolute right-8 top-24 hidden lg:block" aria-hidden="true">
-        <span className="flex items-center gap-2 rounded-full border border-white/40 bg-black/25 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-white backdrop-blur-sm">
-          {t("home.heroCorner")} <ArrowRight className="size-3.5" />
-        </span>
       </div>
     </section>
   );

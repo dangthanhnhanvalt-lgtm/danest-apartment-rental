@@ -14,18 +14,18 @@ const principles = [
 export function AboutPage() {
   const { t } = useI18n();
   return (
-    <main className="bg-background">
-      <section className="border-b border-border bg-section-alt">
+    <main className="danest-public-surface danest-about-page bg-white">
+      <section className="danest-about-hero border-b border-border bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 md:px-6 md:py-20 lg:px-8">
           <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-link">{t("about.eyebrow")}</p>
-              <h1 className="mt-4 font-heading text-4xl font-medium leading-tight text-foreground text-balance md:text-5xl lg:text-6xl">
+              <h1 className="mt-4 font-heading text-4xl font-semibold leading-[1.14] tracking-tight text-foreground text-balance md:text-5xl lg:text-[3.5rem]">
                 {t("about.heroTitle")}
                 <br />
-                <span className="italic">{t("about.heroAccent")}</span>
+                <span className="danest-about-accent">{t("about.heroAccent")}</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
+              <p className="mt-5 max-w-xl text-sm leading-[1.85] text-muted-foreground md:text-[15px]">
                 {t("about.heroDesc")}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -37,7 +37,7 @@ export function AboutPage() {
                 </Button>
               </div>
             </div>
-            <div className="overflow-hidden rounded-3xl">
+            <div className="danest-about-photo overflow-hidden rounded-[24px]">
               <img
                 src="/images/about.jpg"
                 alt={t("about.heroImgAlt")}
@@ -48,32 +48,32 @@ export function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-background">
+      <section className="danest-about-principles bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 md:px-6 md:py-20 lg:px-8">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-link">{t("about.approachEyebrow")}</p>
             <h2 className="mt-3 font-heading text-3xl font-medium text-foreground text-balance md:text-4xl">
               {t("about.approachTitle")}
             </h2>
-            <p className="mt-3 text-base text-muted-foreground md:text-lg">
+            <p className="danest-about-supporting mt-3 max-w-[62ch] text-sm italic leading-[1.85] text-muted-foreground md:text-[15px]">
               {t("about.approachDesc")}
             </p>
           </div>
           <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2">
             {principles.map((p) => (
-              <div key={p.titleKey} className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--shadow-surface)" }}>
+              <div key={p.titleKey} className="danest-about-principle rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--shadow-surface)" }}>
                 <span className="flex size-11 items-center justify-center rounded-xl bg-accent text-link">
                   <p.icon className="size-5" aria-hidden="true" />
                 </span>
                 <h3 className="mt-4 font-heading text-xl font-semibold text-card-foreground">{t(p.titleKey)}</h3>
-                <p className="mt-2 text-base leading-relaxed text-muted-foreground">{t(p.bodyKey)}</p>
+                <p className="mt-2 text-sm leading-[1.8] text-muted-foreground">{t(p.bodyKey)}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-section-alt">
+      <section className="danest-about-contact bg-white">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 py-16 md:px-6 md:py-20 lg:grid-cols-2 lg:px-8">
           <div id="contact" className="scroll-mt-24">
             <h2 className="font-heading text-3xl font-medium text-foreground">{t("about.contactTitle")}</h2>

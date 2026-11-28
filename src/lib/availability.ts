@@ -1,69 +1,14 @@
 import type { AdminSettings, Listing } from "~/types";
-
-export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
-  availabilityGraceDays: 7,
-  availabilityReminderDays: 14,
-};
-
-export type AvailabilityState = "fresh" | "reminder" | "overdue" | "hidden";
-
-export interface AvailabilityStatus {
-  daysSinceConfirmed: number;
-  state: AvailabilityState;
-  reminderDue: boolean;
-  graceDaysLeft: number;
-  hideAfterDays: number;
+export const DEFAULT_ADMIN_SETTINGS:AdminSettings={availabilityGraceDays:3,availabilityReminderDays:14};
+export type AvailabilityState="fresh"|"reminder"|"overdue"|"hidden"|"unknown";
+export interface AvailabilityStatus {daysSinceConfirmed:number;state:AvailabilityState;reminderDue:boolean;graceDaysLeft:number;hideAfterDays:number}
+export function availabilityStatus(listing:Listing,settings?:AdminSettings,now=new Date()):AvailabilityStatus{
+  const DAY=86400000;
+  const confirmed=Date.parse(listing.lastAvailabilityConfirmedAt), reminded=Date.parse(listing.availabilityReminderSentAt??"");
+  const known=Number.isFinite(confirmed), days=known?Math.max(0,Math.floor((+now-confirmed)/DAY)):0;
+  const reminderRecorded=Number.isFinite(reminded)&&(!known||reminded>=confirmed);
+  const due=known&&!!settings&&+now-confirmed>settings.availabilityReminderDays*DAY;
+  const state:AvailabilityState=listing.status==="hidden"&&listing.availabilityHiddenAt?"hidden":!known?"unknown":due||reminderRecorded?"overdue":"fresh";
+  return {daysSinceConfirmed:days,state,reminderDue:due||reminderRecorded,graceDaysLeft:settings&&reminderRecorded?Math.max(0,Math.ceil((reminded+settings.availabilityGraceDays*DAY-+now)/DAY)):settings?.availabilityGraceDays??0,hideAfterDays:settings?settings.availabilityReminderDays+settings.availabilityGraceDays:0};
 }
-
-function daysBetween(fromISO: string, to: Date): number {
-  const from = new Date(`${fromISO.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(from.getTime())) return 0;
-  const toDay = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-  return Math.floor((toDay.getTime() - from.getTime()) / 86_400_000);
-}
-
-/**
- * Availability rules (simulated in this prototype):
- * - reminderDays (14 by default): past this, the listing is "overdue" and the landlord must reconfirm.
- * - reminderDays + graceDays: past this, the listing drops out of public search until reconfirmed.
- */
-function readSettings(): AdminSettings {
-  try {
-    const raw = localStorage.getItem("danest.admin.settings");
-    if (!raw) return DEFAULT_ADMIN_SETTINGS;
-    const parsed = JSON.parse(raw) as Partial<AdminSettings>;
-    return {
-      availabilityGraceDays: parsed.availabilityGraceDays ?? DEFAULT_ADMIN_SETTINGS.availabilityGraceDays,
-      availabilityReminderDays: parsed.availabilityReminderDays ?? DEFAULT_ADMIN_SETTINGS.availabilityReminderDays,
-    };
-  } catch {
-    return DEFAULT_ADMIN_SETTINGS;
-  }
-}
-
-export function availabilityStatus(
-  listing: Listing,
-  settings?: AdminSettings,
-  now: Date = new Date(),
-): AvailabilityStatus {
-  settings = settings ?? readSettings();
-  const days = daysBetween(listing.lastAvailabilityConfirmedAt, now);
-  const reminderDays = settings.availabilityReminderDays;
-  const hideAfterDays = reminderDays + settings.availabilityGraceDays;
-  let state: AvailabilityState = "fresh";
-  if (days > hideAfterDays) state = "hidden";
-  else if (days > reminderDays) state = "overdue";
-  else if (days >= Math.max(0, reminderDays - 7)) state = "reminder";
-  return {
-    daysSinceConfirmed: days,
-    state,
-    reminderDue: days > reminderDays,
-    graceDaysLeft: Math.max(0, hideAfterDays - days),
-    hideAfterDays,
-  };
-}
-
-export function isPubliclyVisible(listing: Listing, settings?: AdminSettings): boolean {
-  if (listing.status !== "published") return false;
-  return availabilityStatus(listing, settings ?? DEFAULT_ADMIN_SETTINGS).state !== "hidden";
-}
+export function isPubliclyVisible(listing:Listing):boolean{return listing.status==="published";}

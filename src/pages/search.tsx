@@ -1,3 +1,4 @@
+import { useCatalog } from "~/state/catalog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGrid, Map as MapIcon, SlidersHorizontal, X } from "lucide-react";
 import { useRouter, buildSearchUrl } from "~/lib/router";
@@ -11,75 +12,30 @@ import { MapView } from "~/components/map/map-view";
 import { QuickViewModal } from "~/components/search/quick-view";
 import { FilterPanel } from "~/components/search/filter-panel";
 import { EMPTY_FILTERS, SORT_LABEL, parseFilters, toQuery, type Filters } from "~/components/search/filter-config";
+import { useLabels } from "~/i18n/use-labels";
 import { useI18n } from "~/i18n/language-context";
+import { searchResults } from "~/lib/search-results";
 import type { Listing, SortKey } from "~/types";
 
 export function SearchPage() {
   const router = useRouter();
   const { listings, listingsLoading, toggleCompare } = useAppState();
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
+  const labels=useLabels();
   const { toast } = useToast();
-  const [filters, setFilters] = useState<Filters>(() => parseFilters(router.query));
+  const {areas,amenities}=useCatalog();
+  const filters = useMemo(()=>parseFilters(router.query,areas.map(a=>a.id),amenities.map(a=>a.id)),[router.query,areas,amenities]);
+  const setFilters = (next:Filters) => {
+    const target=buildSearchUrl(toQuery(next));
+    if(target!==`${window.location.pathname}${window.location.search}`) router.navigate(target,{replace:true,scroll:false});
+  };
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const filterDialog=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{const d=filterDialog.current;if(!d||!mobileFiltersOpen)return;const previous=document.body.style.overflow;const trigger=document.activeElement as HTMLElement|null;d.showModal();document.body.style.overflow="hidden";return()=>{if(d.open)d.close();document.body.style.overflow=previous;trigger?.focus();};},[mobileFiltersOpen]);
   const [quickView, setQuickView] = useState<Listing | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const lastPushed = useRef("");
-
-  useEffect(() => {
-    const target = buildSearchUrl(toQuery(filters));
-    if (target === lastPushed.current || target === `${window.location.pathname}${window.location.search}`) return;
-    lastPushed.current = target;
-    router.navigate(target, { replace: true });
-  }, [filters, router]);
-
-  const { neighborhoods: initialNeighborhood } = parseFilters(router.query);
-  const neighborhoodKey = initialNeighborhood.join(",");
-  useEffect(() => {
-    const incoming = `${window.location.pathname}${window.location.search}`;
-    if (incoming !== lastPushed.current) setFilters(parseFilters(new URLSearchParams(incoming.split("?")[1] ?? "")));
-  }, [neighborhoodKey]);
-
   const results = useMemo(() => {
-    const min = filters.minRent ? Number(filters.minRent) : null;
-    const max = filters.maxRent ? Number(filters.maxRent) : null;
-    const duration = filters.duration ? Number(filters.duration) : null;
-    const filtered = listings.filter((l) => {
-      if (l.status !== "published") return false;
-      if (filters.neighborhoods.length && !filters.neighborhoods.includes(l.neighborhood)) return false;
-      if (min !== null && l.monthlyRent < min) return false;
-      if (max !== null && l.monthlyRent > max) return false;
-      if (duration !== null && (duration < l.rentalDurationMonths[0] || duration > l.rentalDurationMonths[1])) return false;
-      if (filters.bedrooms !== null) {
-        if (filters.bedrooms >= 3 ? l.bedrooms < 3 : l.bedrooms < filters.bedrooms) return false;
-      }
-      if (filters.bathrooms !== null) {
-        if (filters.bathrooms >= 2 ? l.bathrooms < 2 : l.bathrooms < filters.bathrooms) return false;
-      }
-      if (filters.types.length && !filters.types.includes(l.type)) return false;
-      if (filters.furnishing && l.furnishing !== filters.furnishing) return false;
-      if (filters.amenities.length && !filters.amenities.every((a) => l.amenities.includes(a))) return false;
-      if (filters.verifiedOnly && !l.verificationBadge) return false;
-      if (filters.availability && l.availability !== filters.availability) return false;
-      return true;
-    });
-    const sorted = [...filtered];
-    switch (filters.sort) {
-      case "price-asc":
-        sorted.sort((a, b) => a.monthlyRent - b.monthlyRent);
-        break;
-      case "price-desc":
-        sorted.sort((a, b) => b.monthlyRent - a.monthlyRent);
-        break;
-      case "newest":
-        sorted.sort((a, b) => new Date(b.listedAt).getTime() - new Date(a.listedAt).getTime());
-        break;
-      default:
-        sorted.sort((a, b) => {
-          const score = (l: Listing) => (l.featured ? 2 : 0) + (l.sponsored ? 1 : 0);
-          return score(b) - score(a) || b.verification.checks.filter((c) => c.status === "verified").length - a.verification.checks.filter((c) => c.status === "verified").length;
-        });
-    }
-    return sorted;
+    return searchResults(listings, filters);
   }, [listings, filters]);
 
   const handleCompare = useCallback(
@@ -105,6 +61,9 @@ export function SearchPage() {
     filters.neighborhoods.length +
     (filters.minRent ? 1 : 0) +
     (filters.maxRent ? 1 : 0) +
+    (filters.minArea ? 1 : 0) +
+    (filters.maxArea ? 1 : 0) +
+    (filters.checkIn ? 1 : 0) +
     (filters.duration ? 1 : 0) +
     (filters.bedrooms ? 1 : 0) +
     (filters.bathrooms ? 1 : 0) +
@@ -113,6 +72,19 @@ export function SearchPage() {
     filters.amenities.length +
     (filters.verifiedOnly ? 1 : 0) +
     (filters.availability ? 1 : 0);
+
+  const chips:{key:string;label:string;next:Filters}[]=[];
+  for(const id of filters.neighborhoods)chips.push({key:`area:${id}`,label:labels.neighborhood[id]??id,next:{...filters,neighborhoods:filters.neighborhoods.filter(x=>x!==id)}});
+  for(const id of filters.types)chips.push({key:`type:${id}`,label:labels.listingType[id]??id,next:{...filters,types:filters.types.filter(x=>x!==id)}});
+  for(const id of filters.amenities)chips.push({key:`amenity:${id}`,label:labels.amenity[id]??id,next:{...filters,amenities:filters.amenities.filter(x=>x!==id)}});
+  const scalar = <K extends keyof Filters>(key:K,label:string,empty:Filters[K])=>{if(filters[key])chips.push({key,label,next:{...filters,[key]:empty}});};
+  scalar("minRent",`${t("filter.minRent")}: $${filters.minRent}`,"");scalar("maxRent",`${t("filter.maxRent")}: $${filters.maxRent}`,"");
+  scalar("minArea",`${t("filter.minArea")}: ${filters.minArea} m²`,"");scalar("maxArea",`${t("filter.maxArea")}: ${filters.maxArea} m²`,"");
+  scalar("checkIn",`${t("home.checkIn")}: ${filters.checkIn}`,"");scalar("duration",`${t("home.duration")}: ${filters.duration} ${t("common.months")}`,"");
+  scalar("bedrooms",`${t("search.bedrooms")}: ${filters.bedrooms}+`,null);scalar("bathrooms",`${t("search.bathrooms")}: ${filters.bathrooms}+`,null);
+  scalar("furnishing",filters.furnishing?labels.furnishing[filters.furnishing]:"","");
+  scalar("verifiedOnly",pick("Verified only","Chỉ tin đã xác minh"),false);
+  scalar("availability",filters.availability?({available:t("listing.available"),reserved:t("listing.reserved"),unavailable:t("listing.notAvailable")}[filters.availability]):"","");
 
   const cardList = listingsLoading
     ? Array.from({ length: 4 }).map((_, i) => (
@@ -131,18 +103,16 @@ export function SearchPage() {
           key={listing.id}
           onMouseEnter={() => setActiveId(listing.id)}
           onFocus={() => setActiveId(listing.id)}
-          className={`rounded-2xl transition-colors ${
-            activeId === listing.id ? "bg-accent p-1 ring-2 ring-primary" : ""
-          }`}
+          className="h-full min-w-0"
         >
           <ListingCard listing={listing} onQuickView={setQuickView} onCompare={handleCompare} />
         </div>
       ));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="danest-public-surface danest-explore-page min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 md:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="danest-explore-intro flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 md:flex-row md:items-end md:justify-between md:p-7">
           <div>
             <h1 className="font-heading text-3xl font-medium text-foreground md:text-4xl">{t("search.heading")}</h1>
             <p className="mt-2 max-w-2xl text-base text-muted-foreground">
@@ -153,7 +123,7 @@ export function SearchPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="lg:hidden" onClick={() => setMobileFiltersOpen(true)}>
+            <Button variant="outline" className="border-primary text-primary" aria-haspopup="dialog" aria-expanded={mobileFiltersOpen} aria-controls="explore-filter-dialog" onClick={() => setMobileFiltersOpen(true)}>
               <SlidersHorizontal className="size-4" aria-hidden="true" />
               {t("search.filtersButton")}{activeCount > 0 ? ` (${activeCount})` : ""}
             </Button>
@@ -182,19 +152,17 @@ export function SearchPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <aside className="hidden lg:col-span-3 lg:block">
-            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-border bg-card p-5" style={{ boxShadow: "var(--shadow-surface)" }}>
-              <FilterPanel filters={filters} onChange={setFilters} onReset={reset} collapsible activeCount={activeCount} />
-            </div>
-          </aside>
-
-          <div className={filters.view === "map" ? "hidden" : "lg:col-span-9"}>
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">{results.length === 1 ? t("search.resultCountOne") : t("search.resultCount", { count: results.length })}</p>
+        {activeCount>0&&<div className="mt-4 flex flex-wrap items-center gap-2" aria-label={pick("Active filters","Bộ lọc đang áp dụng")}>
+          {chips.map(c=><button key={c.key} type="button" className="inline-flex items-center gap-2 rounded-full border border-[#C8D6CA] bg-[#E9EFE9] px-3 py-2 text-xs font-semibold text-[#365844] focus-visible:ring-2 focus-visible:ring-ring" onClick={()=>setFilters(c.next)} aria-label={`${pick("Remove filter","Bỏ bộ lọc")}: ${c.label}`}>{c.label}<X className="size-3.5" aria-hidden="true"/></button>)}
+          <Button variant="ghost" size="sm" onClick={reset}>{t("search.reset")}</Button>
+        </div>}
+        <div className="mt-6">
+          <div className={filters.view === "map" ? "hidden" : "min-w-0"}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-foreground">{listingsLoading ? t("search.loading") : results.length === 1 ? t("search.resultCountOne") : t("search.resultCount", { count: results.length })}</p>
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <span className="hidden sm:inline">{t("sort.label")}</span>
-                <Select aria-label={t("sort.aria")} value={filters.sort} onChange={(e) => setFilters({ ...filters, sort: e.target.value as SortKey })} className="w-52">
+                <Select aria-label={t("sort.aria")} value={filters.sort} onChange={(e) => setFilters({ ...filters, sort: e.target.value as SortKey })} className="w-full max-w-52">
                   {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
                     <option key={k} value={k}>
                       {t(`sort.${k}`)}
@@ -215,10 +183,10 @@ export function SearchPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">{cardList}</div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{cardList}</div>
             )}
 
-            {!listingsLoading && results.length > 0 ? <SampleDataNote className="mt-6" /> : null}
+            {!listingsLoading && results.some(l => l.isSample) ? <SampleDataNote className="mt-6" /> : null}
           </div>
         </div>
 
@@ -232,19 +200,16 @@ export function SearchPage() {
                 <LayoutGrid className="size-4" aria-hidden="true" /> {t("search.showGrid")}
               </Button>
             </div>
-            <div className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded-2xl border border-border lg:h-[calc(100vh-11rem)]">
+            <div className="danest-explore-map h-[70dvh] min-h-[260px] w-full overflow-hidden rounded-2xl border border-border lg:h-[calc(100dvh-11rem)]">
               <MapView listings={results} activeId={activeId} onSelect={setActiveId} className="h-full w-full" />
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">{t("search.mapAttribution")}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t("search.mapAttribution")} · {t("map.approximate")}</p>
           </div>
         ) : null}
       </div>
 
-      {mobileFiltersOpen ? (
-        <div className="fixed inset-0 z-[85] lg:hidden">
-          <div className="absolute inset-0" style={{ backgroundColor: "var(--overlay-bg)" }} onClick={() => setMobileFiltersOpen(false)} aria-hidden="true" />
-          <div role="dialog" aria-modal="true" aria-label={t("search.filtersButton")} className="absolute inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-2xl bg-card">
-            <div className="sticky top-0 flex items-center justify-between border-b border-border bg-card px-5 py-4">
+      <dialog id="explore-filter-dialog" ref={filterDialog} onCancel={e=>{e.preventDefault();setMobileFiltersOpen(false);}} aria-label={t("search.filtersButton")} className="danest-filter-dialog danest-explore-filters fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-[440px] overflow-y-auto overscroll-contain border-l border-border bg-card text-foreground sm:rounded-l-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-5 py-4">
               <h2 className="text-lg font-semibold text-foreground">{t("search.filtersButton")}</h2>
               <button
                 type="button"
@@ -256,19 +221,17 @@ export function SearchPage() {
               </button>
             </div>
             <div className="p-5">
-              <FilterPanel filters={filters} onChange={setFilters} onReset={reset} activeCount={activeCount} />
+              <FilterPanel filters={filters} onChange={setFilters} onReset={reset} activeCount={activeCount} hideHeading />
             </div>
-            <div className="sticky bottom-0 flex gap-2 border-t border-border bg-card px-5 py-4">
+            <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-border bg-card px-5 py-4">
               <Button variant="outline" className="flex-1" onClick={reset}>
                 {t("search.reset")}
               </Button>
-              <Button className="flex-1" onClick={() => setMobileFiltersOpen(false)}>
+              <Button className="flex-1 whitespace-normal" onClick={() => setMobileFiltersOpen(false)}>
                 {results.length === 1 ? t("search.showResultsOne") : t("search.showResults", { count: results.length })}
               </Button>
             </div>
-          </div>
-        </div>
-      ) : null}
+        </dialog>
 
       {quickView ? (
         <QuickViewModal

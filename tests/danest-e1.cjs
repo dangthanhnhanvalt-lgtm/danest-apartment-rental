@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const read=f=>fs.readFileSync(path.join(__dirname,'../',f),'utf8');
+const js=ts.transpileModule(read('src/lib/auth-scope.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const m={exports:{}};new Function('exports','module','require',js)(m.exports,m,require);
+const {isAdminPath,IDLE_MS,isIdleExpired}=m.exports;
+assert.equal(isAdminPath('/admin'),true);assert.equal(isAdminPath('/admin/users'),true);assert.equal(isAdminPath('/administrator'),false);assert.equal(isAdminPath('/landlord'),false);
+assert.equal(isIdleExpired(0,IDLE_MS-1),false);assert.equal(isIdleExpired(0,IDLE_MS),true);assert.equal(isIdleExpired(10,0),true);assert.equal(isIdleExpired(NaN,10),true);
+const client=read('src/lib/supabase.ts'),router=read('src/lib/router.tsx'),auth=read('src/api/backend/auth.ts'),admin=read('src/pages/admin/layout.tsx'),login=read('src/pages/login.tsx'),idle=read('src/lib/session-idle.ts');
+assert.doesNotMatch(client,/storageKey|authScope|location\.pathname/);assert.doesNotMatch(router,/authScope|scopeForPath/);
+assert.doesNotMatch(auth,/roleAllowed|authScope/);assert.match(auth,/session\.user\.role !== expectedRole/);
+assert.match(admin,/session\?\.user\.role !== "admin"/);assert.match(login,/s\.user\.role === "admin" \? "\/admin"/);
+assert.match(admin,/to="\/forgot-password"/);assert.doesNotMatch(idle,/authStorageKey|authScope/);
+console.log('PASS: 8 E1 route/idle assertions + 8 shared-session source checks (offline)');

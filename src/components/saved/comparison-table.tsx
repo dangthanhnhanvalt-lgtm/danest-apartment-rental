@@ -34,8 +34,15 @@ function buildRows(labels: Labels, t: Translate): RowDef[] {
       key: "total",
       label: t("compare.total"),
       best: "low",
-      value: (l) => summarizeCosts(l).estimatedMonthly,
-      render: (l) => formatUSD(summarizeCosts(l).estimatedMonthly),
+      value: (l) => summarizeCosts(l).unknownItems.length ? null : summarizeCosts(l).estimatedMonthly,
+      render: (l) => <>{formatUSD(summarizeCosts(l).estimatedMonthly,true)}{summarizeCosts(l).unknownItems.length>0 && <span className="block text-xs text-muted-foreground">{t("cost.unknownWarn",{count:summarizeCosts(l).unknownItems.length})}</span>}</>,
+    },
+    {
+      key: "initial",
+      label: t("cost.estimatedInitial"),
+      best: "low",
+      value: (l) => summarizeCosts(l).unknownItems.length ? null : summarizeCosts(l).initialPayment.estimated,
+      render: (l) => formatUSD(summarizeCosts(l).initialPayment.estimated,true),
     },
     {
       key: "deposit",
@@ -109,7 +116,7 @@ function buildRows(labels: Labels, t: Translate): RowDef[] {
 function bestIdFor(row: RowDef, listings: Listing[]): string | null {
   if (!row.best || listings.length < 2) return null;
   const withValues = listings.map((l) => ({ id: l.id, v: row.value(l) })).filter((x): x is { id: string; v: number } => x.v !== null);
-  if (withValues.length < 2) return null;
+  if (withValues.length !== listings.length) return null;
   const target = row.best === "low" ? Math.min(...withValues.map((x) => x.v)) : Math.max(...withValues.map((x) => x.v));
   const winners = withValues.filter((x) => x.v === target);
   return winners.length === 1 ? winners[0].id : null;
@@ -157,15 +164,15 @@ export function ComparisonTable({
             <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
             {t("compare.diffHint")}
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[75vh]" tabIndex={0} role="region" aria-labelledby="compare-title">
             <table className="w-full min-w-[640px] border-collapse text-sm">
               <thead>
                 <tr>
-                  <th scope="col" className="w-48 p-4 text-left align-top text-xs font-semibold uppercase text-muted-foreground">
+                  <th scope="col" className="sticky left-0 top-0 z-20 w-36 min-w-32 bg-card p-3 text-left align-top text-xs font-semibold uppercase text-muted-foreground sm:w-48">
                     {t("compare.property")}
                   </th>
                   {listings.map((l) => (
-                    <th key={l.id} scope="col" className="min-w-[180px] p-4 text-left align-top">
+                    <th key={l.id} scope="col" className="sticky top-0 z-10 min-w-[180px] bg-card p-3 text-left align-top">
                       <div className="relative">
                         <img src={l.images[0]} alt={t("listing.imageAlt", { title: l.title, area: labels.neighborhood[l.neighborhood] })} className="h-28 w-full rounded-xl object-cover" />
                         <button
@@ -190,15 +197,15 @@ export function ComparisonTable({
                   const bestId = bestIdFor(row, listings);
                   return (
                     <tr key={row.key} className="border-t border-border">
-                      <th scope="row" className="p-4 text-left align-top text-sm font-medium text-muted-foreground">
+                      <th scope="row" className="sticky left-0 z-[1] bg-card p-3 text-left align-top text-sm font-semibold text-muted-foreground">
                         {row.label}
                       </th>
                       {listings.map((l) => {
                         const isBest = l.id === bestId;
                         return (
-                          <td key={l.id} className={cn("p-4 align-top text-sm text-foreground", isBest && "bg-accent")}>
+                          <td key={l.id} className={cn("p-4 align-top text-sm text-foreground", isBest && "bg-[#E9EFE9] text-[#365844] dark:bg-accent dark:text-accent-foreground")}>
                             {row.render(l)}
-                            {isBest ? <span className="mt-1 block text-xs font-semibold text-link">{t("compare.best")}</span> : null}
+                            {isBest ? <span className="mt-1 block text-xs font-semibold text-success">{t("compare.best")}</span> : null}
                           </td>
                         );
                       })}

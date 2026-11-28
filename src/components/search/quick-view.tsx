@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Bath, BedDouble, ChevronLeft, ChevronRight, Expand, MapPin, Maximize2, X } from "lucide-react";
-import { AMENITIES } from "~/data/constants";
 import { useI18n } from "~/i18n/language-context";
 import { useLabels } from "~/i18n/use-labels";
 import { formatRent, formatUSD, summarizeCosts } from "~/lib/format";
@@ -161,7 +160,7 @@ export function QuickViewModal({
 
   const costs = summarizeCosts(listing);
   const titleId = `quick-view-${listing.id}`;
-  const available = AMENITIES.filter((a) => listing.amenities.includes(a.id)).slice(0, 6);
+  const available = labels.allAmenities.filter((a) => listing.amenities.includes(a.id)).slice(0, 6);
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4 lg:p-6">

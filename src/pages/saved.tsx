@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bath, BedDouble, Heart, MapPin, Maximize2, Plus, Scale, Trash2 } from "lucide-react";
-import { mockInquiriesRepository } from "~/api";
+import { readInquiries } from "~/api/backend/inquiries";
 import { useI18n } from "~/i18n/language-context";
 import { useLabels } from "~/i18n/use-labels";
 import { formatDate, formatRent } from "~/lib/format";
@@ -28,25 +28,28 @@ const INQUIRY_STATUS_CLASSES: Record<Inquiry["status"], string> = {
   not_proceeding: "border-border bg-muted text-muted-foreground",
 };
 
-function MyInquiries({ email, listings }: { email: string; listings: Listing[] }) {
+function MyInquiries({ userId, listings }: { userId: string; listings: Listing[] }) {
   const { t } = useI18n();
   const [inquiries, setInquiries] = useState<Inquiry[] | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    mockInquiriesRepository
-      .listForTenant(email)
+    setInquiries(null);
+    setError("");
+    readInquiries()
       .then((items) => {
-        if (active) setInquiries(items);
+        if (active) setInquiries(items.filter(i => i.tenantId === userId));
       })
-      .catch(() => {
-        if (active) setInquiries([]);
+      .catch((err) => {
+        if (active) { setInquiries([]); setError(err instanceof Error ? err.message : String(err)); }
       });
     return () => {
       active = false;
     };
-  }, [email]);
+  }, [userId]);
 
+  if (error) return <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>;
   if (inquiries === null) {
     return <p className="mt-4 text-sm text-muted-foreground">{t("saved.inqLoading")}</p>;
   }
@@ -83,9 +86,10 @@ function SavedCard({ listing }: { listing: Listing }) {
   const { t } = useI18n();
   const labels = useLabels();
 
-  const handleRemove = () => {
-    toggleSaved(listing.id);
+  const handleRemove = async () => {
+    try { await toggleSaved(listing.id);
     toast({ title: t("saved.removedToast"), description: listing.title, tone: "info" });
+    } catch(e) { toast({title:"Unable to remove / Không thể xóa",description:e instanceof Error?e.message:String(e),tone:"warning"}); }
   };
 
   const handleCompare = () => {
@@ -104,7 +108,7 @@ function SavedCard({ listing }: { listing: Listing }) {
   };
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card" style={{ boxShadow: "var(--shadow-surface)" }}>
+    <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card hover:border-[#829987]" style={{ boxShadow: "var(--shadow-surface)" }}>
       <Link to={`/apartment/${listing.id}`} className="relative block" aria-label={t("listing.viewAria", { title: listing.title })}>
         <img
           src={listing.images[0]}
@@ -114,10 +118,11 @@ function SavedCard({ listing }: { listing: Listing }) {
         />
         <div className="absolute inset-x-3 top-3 flex flex-wrap gap-2">
           <VerificationBadge verified={listing.verificationBadge} />
+            {listing.isSample && <span className="rounded-full border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground">{t("listing.demoData")}</span>}
         </div>
         <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2">
           <AvailabilityBadge availability={listing.availability} />
-          <span className="rounded-full border border-border bg-card px-3 py-1 text-sm font-semibold text-card-foreground">
+          <span className="rounded-full border border-border bg-card px-3 py-1 text-base font-bold tabular-nums text-card-foreground">
             {formatRent(listing.monthlyRent)}
           </span>
         </div>
@@ -133,7 +138,7 @@ function SavedCard({ listing }: { listing: Listing }) {
             {listing.title}
           </h3>
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-y border-border py-2.5 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <BedDouble className="size-4" aria-hidden="true" /> {t("listing.beds", { count: listing.bedrooms })}
           </span>
@@ -171,19 +176,20 @@ function SavedCard({ listing }: { listing: Listing }) {
 }
 
 export function SavedPage() {
-  const { listings, savedIds, compareIds, toggleCompare, clearCompare, session } = useAppState();
+  const { listings, listingsLoading, savedIds, compareIds, toggleCompare, clearCompare, session, savedError, savedLoading, refreshSaved, toggleSaved } = useAppState();
   const { toast } = useToast();
   const { t } = useI18n();
   const labels = useLabels();
 
   const saved = useMemo(
-    () => savedIds.map((id) => listings.find((l) => l.id === id)).filter((l): l is Listing => Boolean(l)),
+    () => savedIds.map((id) => listings.find((l) => l.id === id)).filter((l): l is Listing => l?.status === "published"),
     [savedIds, listings],
   );
   const compared = useMemo(
-    () => compareIds.map((id) => listings.find((l) => l.id === id)).filter((l): l is Listing => Boolean(l)),
+    () => compareIds.map((id) => listings.find((l) => l.id === id)).filter((l): l is Listing => l?.status === "published"),
     [compareIds, listings],
   );
+  const unavailable = savedIds.filter(id=>id.startsWith("unavailable:"));
   const notCompared = saved.filter((l) => !compareIds.includes(l.id));
 
   const handleAddCompare = (listing: Listing) => {
@@ -205,14 +211,17 @@ export function SavedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="danest-public-surface min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 md:px-6 lg:px-8">
         <h1 className="font-heading text-3xl font-medium text-foreground md:text-4xl">{t("saved.title")}</h1>
+        {savedLoading && <p role="status">Loading / Đang tải…</p>}
+        {savedError && <p role="alert" className="text-destructive">{savedError}</p>}
+        {session?.user.role === "tenant" && <Button variant="outline" size="sm" onClick={()=>void refreshSaved()} disabled={savedLoading}>Refresh / Làm mới</Button>}
         <p className="mt-2 max-w-2xl text-base text-muted-foreground">
           {t("saved.subtitle")}
         </p>
 
-        {saved.length === 0 ? (
+        {saved.length === 0 && unavailable.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-border bg-card p-10 text-center" style={{ boxShadow: "var(--shadow-surface)" }}>
             <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-accent">
               <Heart className="size-6 text-link" aria-hidden="true" />
@@ -232,11 +241,16 @@ export function SavedPage() {
                 <SavedCard key={listing.id} listing={listing} />
               ))}
             </div>
-            <SampleDataNote className="mt-6" />
+            {saved.some(l => l.isSample) && <SampleDataNote className="mt-6" />}
           </>
         )}
 
-        {session ? (
+        {!savedLoading && !listingsLoading && unavailable.length>0 && <section className="mt-6 space-y-3" aria-label={t("saved.unavailableTitle")}>
+          <h2 className="font-semibold">{t("saved.unavailableTitle")}</h2>
+          <p className="text-sm text-muted-foreground">{t("saved.unavailableHint")}</p>
+          {unavailable.map(id=><div key={id} className="flex items-center justify-between gap-2 rounded-xl border border-border p-3"><span>{t("saved.listingUnavailable")}</span><Button variant="outline" size="sm" onClick={async()=>{try{await toggleSaved(id);}catch(e){toast({title:t("saved.removeError"),description:e instanceof Error?e.message:String(e),tone:"warning"});}}}>{t("saved.removeUnavailable")}</Button></div>)}
+        </section>}
+        {session?.user.role === "tenant" && session.user.accountStatus === "active" ? (
           <section className="mt-12" aria-labelledby="my-inquiries-title">
             <h2 id="my-inquiries-title" className="font-heading text-xl font-semibold text-foreground">
               {t("saved.inquiries")}
@@ -244,13 +258,13 @@ export function SavedPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {t("saved.inquiriesHint")}
             </p>
-            <MyInquiries email={session.user.email} listings={listings} />
+            <MyInquiries key={session.user.id} userId={session.user.id} listings={listings} />
           </section>
         ) : null}
 
         <div className="mt-12">
           <ComparisonTable listings={compared} onRemove={handleRemoveFromCompare} onClear={clearCompare} />
-          {saved.length > 0 ? <SampleDataNote className="mt-4" /> : null}
+          {compared.some(l => l.isSample) ? <SampleDataNote className="mt-4" /> : null}
         </div>
 
         {notCompared.length > 0 ? (

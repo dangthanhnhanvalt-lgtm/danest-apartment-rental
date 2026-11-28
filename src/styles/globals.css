@@ -8,7 +8,7 @@
    Generated: 2026-04-25T11:25:24Z
    ============================================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Noto+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @plugin "tailwindcss-animate";
@@ -439,3 +439,833 @@
     font-size-adjust: none;
   }
 }
+
+/* UI-01 — premium coastal public surfaces. Semantic color is paired with text. */
+.danest-public-footer { background: #172C3D; color: #F7F5F0; }
+.danest-public-footer .text-foreground, .danest-public-footer .hover\:text-foreground:hover { color: #F7F5F0; }
+.danest-public-footer .text-muted-foreground { color: #D9D7CF; }
+.danest-public-footer .border-border, .danest-public-footer .border-input { border-color: #536371; }
+.danest-public-footer a:hover { color: #FFFFFF; }
+.danest-public-footer a:hover.bg-accent, .danest-public-footer a.hover\:bg-accent:hover { background: #354957; }
+.danest-public-footer a:focus-visible { outline: 2px solid #D9CBB8; outline-offset: 3px; }
+.danest-filter-dialog::backdrop { background: rgba(23,44,61,.48); }
+.danest-filter-dialog[open] { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .danest-public-footer *, .danest-filter-dialog *, .danest-photo-gallery *, .danest-public-home * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+:root:not(.dark) .danest-public-surface { --card: #FFFFFF; --card-foreground: #172C3D; }
+.danest-filter-dialog { inset-block: 0; inset-inline-end: 0; inset-inline-start: auto; margin: 0; }
+.danest-filter-dialog:not([open]) { display: none; }
+@media (prefers-reduced-motion: reduce) { .danest-public-surface * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* UI-02: preserve hidden wizard sections, calm dashboard and focus visibility. */
+.danest-landlord-surface section[hidden] { display: none !important; }
+:root:not(.dark) .danest-landlord-surface { --sidebar: #FFFFFF; --sidebar-foreground: #172C3D; --sidebar-accent: #E9EFE9; --sidebar-accent-foreground: #365844; }
+.danest-landlord-surface button, .danest-landlord-surface a { overflow-wrap: anywhere; }
+.danest-landlord-surface form button { white-space: normal; }
+
+/* UI-03: scoped admin polish, readable table data and calm semantic accents. */
+:root:not(.dark) .danest-admin-surface { --background:#F7F5F0; --card:#FFFFFF; --card-foreground:#172C3D; --sidebar:#FFFFFF; --sidebar-foreground:#172C3D; --sidebar-accent:#E9EFE9; --sidebar-accent-foreground:#365844; --sidebar-border:#E4E0D9; }
+.danest-admin-surface h1,.danest-admin-surface h2,.danest-admin-surface h3,.danest-admin-surface h4 {font-family:var(--font-sans);font-size-adjust:none;overflow-wrap:anywhere;}
+.danest-admin-surface main {min-width:0;overflow-wrap:anywhere;}
+.danest-admin-surface table {font-variant-numeric:tabular-nums;}
+.danest-admin-surface thead {background:var(--muted);}
+.danest-admin-surface tbody tr:hover {background:color-mix(in srgb,var(--muted) 55%,transparent);}
+.danest-admin-surface th {font-weight:600;vertical-align:bottom;}
+.danest-admin-surface td {vertical-align:top;}
+.danest-admin-surface :is(button,a,summary,select,input,textarea,[tabindex]):focus-visible {outline:2px solid var(--ring);outline-offset:2px;}
+.danest-admin-surface main :is(button,a[role="button"]) {white-space:normal;height:auto;min-height:2.25rem;overflow-wrap:anywhere;}
+.danest-admin-surface main input,.danest-admin-surface main select,.danest-admin-surface main textarea {max-width:100%;}
+.danest-admin-surface main summary {padding-block:.25rem;}
+.danest-admin-dialog::backdrop {background:rgba(23,44,61,.48);}
+@media(prefers-reduced-motion:reduce){.danest-admin-surface *,.danest-landlord-surface * {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
+
+.danest-admin-dialog:not([open]) {display:none;}
+.danest-admin-surface main > div,.danest-admin-surface main section {min-width:0;}
+
+/* DaNest UI refresh — phase 1: warm pastel contrast, consistent cards and safe layering */
+
+:root { --font-sans: "Be Vietnam Pro", "Manrope", sans-serif; --font-heading: "Manrope", "Be Vietnam Pro", sans-serif; }
+:root:not(.dark) .danest-public-surface { --background: #FAF8F4; --section-alt: #F4F0E9; --card: #FFFFFF; }
+.danest-public-home h1, .danest-public-home h2, .danest-public-home h3 { letter-spacing: -.035em; }
+.danest-public-home section { scroll-margin-top: 5rem; }
+.danest-public-home a, .danest-public-home button { transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.danest-public-home a:focus-visible, .danest-public-home button:focus-visible { outline: 3px solid #DF916D; outline-offset: 3px; }
+.danest-public-home a:hover { text-decoration-thickness: 1px; }
+.danest-public-home .group:hover { box-shadow: 0 12px 30px rgba(23,44,61,.10); }
+.danest-public-home .group:active { transform: translateY(1px); }
+.danest-public-surface .leaflet-container { z-index: 0; isolation: isolate; }
+.danest-public-surface .leaflet-pane { z-index: 400; }
+.danest-public-surface .leaflet-top, .danest-public-surface .leaflet-bottom { z-index: 800; }
+@media (prefers-reduced-motion: reduce) { .danest-public-home * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* DaNest Vibrant Coastal v3 — typography, gradients and deliberate contrast */
+:root {
+  --font-sans: "Be Vietnam Pro", system-ui, sans-serif;
+  --font-heading: "Plus Jakarta Sans", "Be Vietnam Pro", system-ui, sans-serif;
+  --brand-5: #10283D;
+  --brand-6: #071E30;
+  --brand-7: #061724;
+  --neutral-0: #FFF8F1;
+  --neutral-1: #F7EEE7;
+  --neutral-2: #EDE1D9;
+  --neutral-6: #59616B;
+  --neutral-7: #374452;
+  --neutral-8: #1C3041;
+  --highlight: #E85A2B;
+  --highlight-foreground: #FFFFFF;
+  --link: #08677D;
+  --ring: #F47746;
+}
+:root:not(.dark) .danest-public-surface {
+  --background: #FFF8F1;
+  --foreground: #172B3C;
+  --primary: #10283D;
+  --primary-strong: #071E30;
+  --primary-foreground: #FFFFFF;
+  --section-alt: #F7EEE7;
+  --card: #FFFFFF;
+  --card-foreground: #172B3C;
+  --muted: #F7EEE7;
+  --muted-foreground: #56616A;
+  --border: #D8D5D1;
+  --input: #C9C9C7;
+  --accent: #FFE7D7;
+  --accent-foreground: #142C3C;
+  --ring: #F47746;
+  --highlight: #E85A2B;
+  --highlight-foreground: #FFFFFF;
+}
+:root:not(.dark) .danest-landlord-surface,
+:root:not(.dark) .danest-admin-surface {
+  --background: #F8F6F4;
+  --foreground: #172B3C;
+  --primary: #10283D;
+  --card: #FFFFFF;
+  --sidebar-accent: #E5F2F4;
+  --sidebar-accent-foreground: #10283D;
+  --ring: #F47746;
+}
+.danest-public-surface,
+.danest-landlord-surface,
+.danest-admin-surface { font-family: var(--font-sans); }
+.danest-public-surface :is(h1,h2,h3,h4),
+.danest-landlord-surface :is(h1,h2,h3,h4),
+.danest-admin-surface :is(h1,h2,h3,h4) {
+  font-family: var(--font-heading);
+  font-size-adjust: none;
+  letter-spacing: -.035em;
+}
+.danest-public-home > section:first-child > div > div:first-child {
+  background: linear-gradient(120deg, #10283D 0%, #123C53 51%, #116D83 100%);
+  box-shadow: 0 20px 48px rgba(16,40,61,.16);
+}
+.danest-public-home > section:first-child > div > div:first-child > div:first-child {
+  background: radial-gradient(circle at 15% 15%, rgba(255,181,96,.16), transparent 44%),
+              radial-gradient(circle at 95% 90%, rgba(30,184,194,.14), transparent 44%);
+}
+/* Featured cards and buttons: visual lift without sacrificing content legibility */
+.danest-public-home .group { transition: transform .22s ease, box-shadow .22s ease; }
+.danest-public-home .group:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(16,40,61,.14); }
+.danest-public-surface :is(button,a,input,select,textarea):focus-visible {
+  outline: 3px solid #F47746;
+  outline-offset: 2px;
+}
+.danest-public-footer {
+  background: linear-gradient(120deg,#0B2437 0%,#123C50 70%,#15566A 100%);
+  color: #FFFFFF;
+}
+/* Safe gradients: restrict decorative gradients to prominent surfaces */
+.danest-public-home section { scroll-margin-top: 5rem; }
+@media (prefers-reduced-motion: reduce) {
+  .danest-public-home .group { transform: none !important; transition: none !important; }
+}
+
+/* DaNest V4: saturated but controlled visual system */
+:root:not(.dark) .danest-public-surface {
+  --background: #F5F8F9; --section-alt: #EAF2F4; --card: #FFFFFF;
+  --border: #D7E2E6; --muted: #EEF4F6; --muted-foreground: #50616C;
+  --accent: #DDF1F3; --link: #0C718B; --ring: #E85A2B;
+}
+:root:not(.dark) .danest-landlord-surface,
+:root:not(.dark) .danest-admin-surface {
+  --background: #F4F7F9; --section-alt: #EAF1F4; --border: #D7E2E6;
+  --accent: #DDF1F3; --ring: #E85A2B;
+}
+.danest-public-surface .font-heading {font-family:var(--font-heading);letter-spacing:-.035em;}
+.danest-public-surface :is(a,button) {transition-duration:.2s;}
+.danest-public-surface :is(a,button):focus-visible {outline:3px solid #E85A2B;outline-offset:3px;}
+.danest-public-surface .leaflet-container {isolation:isolate;z-index:0;}
+.danest-public-surface .leaflet-control-container {position:relative;z-index:1;}
+.danest-public-home > section:first-child > div > div:first-child {
+  background:linear-gradient(112deg,#09283E 0%,#0D536C 48%,#13899A 100%);
+}
+.danest-public-home > section:first-child > div > div:first-child > div:first-child {
+  background:radial-gradient(circle at 88% 18%,rgba(255,158,93,.24),transparent 35%),
+  radial-gradient(circle at 10% 90%,rgba(71,216,210,.19),transparent 38%);
+}
+@media (prefers-reduced-motion:reduce){.danest-public-surface * {animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+
+/* DaNest V5 — elegant coastal palette; deliberately restrained, cohesive colors */
+:root:not(.dark) .danest-public-surface {
+  --background: #F8F8F5;
+  --foreground: #203A43;
+  --primary: #173C48;
+  --primary-strong: #102E38;
+  --section-alt: #F0F4F2;
+  --card: #FFFFFF;
+  --muted: #F0F4F2;
+  --muted-foreground: #64747A;
+  --border: #DDE5E1;
+  --input: #CAD7D1;
+  --accent: #E6F0EC;
+  --accent-foreground: #203A43;
+  --highlight: #D99B77;
+  --highlight-foreground: #173540;
+  --ring: #B77759;
+  --link: #286C77;
+}
+:root:not(.dark) .danest-landlord-surface,
+:root:not(.dark) .danest-admin-surface {
+  --background: #F8F8F5; --foreground: #203A43; --primary: #173C48;
+  --section-alt: #F0F4F2; --border: #DDE5E1;
+  --accent: #E6F0EC; --ring: #B77759;
+}
+.danest-public-surface, .danest-landlord-surface, .danest-admin-surface {
+  --font-sans: 'Be Vietnam Pro', 'Inter', Arial, sans-serif;
+  --font-heading: 'Inter', 'Be Vietnam Pro', Arial, sans-serif;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+}
+.danest-public-surface :is(h1,h2,h3,h4),
+.danest-landlord-surface :is(h1,h2,h3,h4),
+.danest-admin-surface :is(h1,h2,h3,h4) {
+  font-family: var(--font-heading);
+  letter-spacing: -.025em;
+  line-height: 1.2;
+}
+/* Explicit class avoids styling arbitrary nested wrappers and prevents old gradient clashes. */
+.danest-public-home .danest-elegant-hero {
+  background: linear-gradient(118deg, #193B46 0%, #1D4651 56%, #295B62 100%) !important;
+  box-shadow: 0 16px 44px rgba(26,59,69,.13);
+}
+.danest-public-home .danest-elegant-hero > div:first-child {
+  background: transparent !important;
+}
+.danest-public-home .danest-elegant-hero .danest-hero-image {
+  background: #2A5359;
+}
+/* Fade the left edge of the photograph into the hero surface on desktop. */
+@media (min-width: 1024px) {
+  .danest-public-home .danest-elegant-hero .danest-hero-image::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 44%;
+    pointer-events: none;
+    background: linear-gradient(90deg, #214C56 0%, rgba(33,76,86,.94) 15%, rgba(33,76,86,.55) 53%, transparent 100%);
+    z-index: 1;
+  }
+}
+@media (max-width: 1023px) {
+  .danest-public-home .danest-elegant-hero .danest-hero-image::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, #214C56 0%, transparent 24%);
+  }
+}
+.danest-public-home .danest-elegant-hero p { letter-spacing: 0; }
+.danest-public-surface :is(button,a):focus-visible { outline-color: #B77759; }
+
+/* ============================================================
+   DaNest V6 — White Canvas / Soft Coastal
+   Deliberately scoped: preserves app functionality and admin UI.
+   ============================================================ */
+:root:not(.dark) .danest-public-surface,
+:root:not(.dark) .danest-landlord-surface,
+:root:not(.dark) .danest-admin-surface {
+  --background: #FFFFFF;
+  --foreground: #1B3440;
+  --primary: #1D4650;
+  --primary-strong: #153842;
+  --card: #FFFFFF;
+  --card-foreground: #1B3440;
+  --popover: #FFFFFF;
+  --muted: #F8FAF9;
+  --section-alt: #FAFCFB;
+  --muted-foreground: #60747B;
+  --border: #E3EAE9;
+  --input: #D9E3E1;
+  --accent: #F2F8F6;
+  --accent-foreground: #1D4650;
+  --highlight: #E5B090;
+  --highlight-foreground: #173C45;
+  --ring: #397B7C;
+  --link: #236D76;
+  --shadow-surface: 0 2px 12px rgba(24,58,66,.035);
+  --shadow-elevated: 0 8px 28px rgba(24,58,66,.075);
+  --font-sans: 'Noto Sans','Be Vietnam Pro',Arial,sans-serif;
+  --font-heading: 'Be Vietnam Pro','Noto Sans',Arial,sans-serif;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+}
+.danest-public-surface :is(h1,h2,h3,h4),
+.danest-landlord-surface :is(h1,h2,h3,h4),
+.danest-admin-surface :is(h1,h2,h3,h4) {
+  font-family:var(--font-heading);
+  letter-spacing:-.035em;
+}
+.danest-public-surface :is(p,span,button,input,select,label),
+.danest-landlord-surface :is(p,span,button,input,select,label),
+.danest-admin-surface :is(p,span,button,input,select,label) {
+  font-synthesis:none;
+}
+/* White is the actual page canvas. Small atmospheric gradients are decorative only. */
+.danest-public-home { background: #fff !important; }
+.danest-public-home > section { background-color:#fff !important; }
+.danest-public-home > section:first-child {
+  background-image:radial-gradient(ellipse 70% 38% at 82% 4%,rgba(205,231,226,.27),transparent 78%) !important;
+}
+.danest-public-home > section:not(:first-child) {
+  background-image:linear-gradient(180deg,#FFFFFF 0%,#FBFDFC 100%);
+}
+.danest-public-surface :is(.bg-card,.bg-background) { border-color:var(--border); }
+.danest-public-surface .group:hover { box-shadow:0 12px 30px rgba(24,58,66,.09); }
+/* Hero: image is physically faded by alpha mask, not obscured with a solid overlay.
+   It extends BEHIND the content column so there is no vertical seam. */
+.danest-public-home .danest-v6-hero,
+.danest-public-home > section:first-child > div > .danest-v6-hero {
+  position:relative;
+  background:linear-gradient(110deg,#1A414B 0%,#204D56 70%,#28575C 100%) !important;
+  isolation:isolate;
+  box-shadow:0 12px 32px rgba(21,57,65,.11);
+}
+.danest-public-home .danest-v6-hero > .danest-v6-copy {
+  position:relative;
+  z-index:2;
+  background:transparent !important;
+}
+.danest-public-home .danest-v6-hero > .danest-v6-photo {
+  z-index:1;
+  background:transparent !important;
+}
+.danest-public-home .danest-v6-hero > .danest-v6-photo::after { content:none !important; }
+.danest-public-home .danest-v6-hero > .danest-v6-photo img {
+  object-position:center center;
+}
+@media (min-width:1024px) {
+  .danest-public-home .danest-v6-hero > .danest-v6-photo {
+    position:absolute;
+    inset:0 0 0 auto;
+    width:64%;
+    height:100%;
+    -webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.52) 31%,#000 59%);
+    mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.52) 31%,#000 59%);
+  }
+}
+@media (max-width:1023px) {
+  .danest-public-home .danest-v6-hero > .danest-v6-photo {
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 32%);
+    mask-image:linear-gradient(to bottom,transparent 0%,#000 32%);
+  }
+}
+.danest-public-home .danest-v6-hero .font-heading {letter-spacing:-.04em;}
+.danest-public-home .danest-v6-hero p {letter-spacing:0;}
+/* Quiet cards: no large colored slabs, fine strokes instead. */
+.danest-public-home :is(.rounded-2xl,.rounded-xl).border {
+  border-color:#E2E9E7;
+}
+.danest-public-home :is(input,select) { background-color:#fff; }
+@media(prefers-reduced-motion:reduce){.danest-public-home * {scroll-behavior:auto;}}
+
+/* DaNest V7 — cohesive bright editorial hero, preserving its rounded frame. */
+:root:not(.dark) .danest-public-surface {
+  --background:#FFFFFF; --card:#FFFFFF; --section-alt:#FFFFFF;
+  --foreground:#163B47; --primary:#1C5262; --primary-strong:#153E4C;
+  --highlight:#E9B494; --border:#E1E9E9; --input:#DCE5E5;
+  --font-sans:"Be Vietnam Pro",system-ui,sans-serif;
+  --font-heading:"Be Vietnam Pro",system-ui,sans-serif;
+}
+.danest-public-home .danest-v6-hero {
+  background:#1C444F !important;
+  border-radius:1.5rem;
+  box-shadow:0 14px 34px rgba(17,49,60,.10);
+}
+.danest-public-home .danest-v6-hero > .danest-v6-copy {
+  position:relative; z-index:2;
+}
+.danest-public-home .danest-v6-hero > .danest-v6-photo {
+  background:transparent;
+}
+.danest-public-home .danest-v6-hero > .danest-v6-photo img {
+  object-fit:cover; object-position:center center;
+}
+@media(min-width:1024px) {
+  .danest-public-home .danest-v6-hero > .danest-v6-photo {
+    position:absolute; inset:0; width:100%; height:100%;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0%,transparent 32%,rgba(0,0,0,.22) 43%,rgba(0,0,0,.8) 59%,#000 71%);
+    mask-image:linear-gradient(90deg,transparent 0%,transparent 32%,rgba(0,0,0,.22) 43%,rgba(0,0,0,.8) 59%,#000 71%);
+  }
+  .danest-public-home .danest-v6-hero > .danest-v6-copy { min-height:520px; }
+}
+@media(max-width:1023px) {
+  .danest-public-home .danest-v6-hero > .danest-v6-photo {
+    position:relative; width:100%;
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 30%);
+    mask-image:linear-gradient(to bottom,transparent 0%,#000 30%);
+  }
+}
+.danest-public-home .danest-v6-hero h1 {font-weight:600;letter-spacing:-.035em;line-height:1.17;}
+.danest-public-home .danest-v6-hero p {letter-spacing:0;}
+.danest-public-home .danest-v6-hero button {font-size:13px;font-weight:600;letter-spacing:-.01em;}
+.danest-public-home .danest-v6-hero + div button[class*="bg-orange"],
+.danest-public-home .danest-v6-hero + div button[class*="bg-amber"] {background:#1C5262!important;color:#fff!important;}
+.danest-public-home > section {background-color:#fff!important;}
+.danest-public-home > section:not(:first-child) {background-image:none!important;}
+.danest-public-home :is(h2,h3) {letter-spacing:-.03em;}
+.danest-public-home .text-muted-foreground {color:#607780;}
+
+/* DaNest V8: Bright Coastal — a single clean, bright design language. */
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap");
+:root:not(.dark) .danest-public-surface {
+  --background:#FFFFFF; --card:#FFFFFF; --section-alt:#FFFFFF;
+  --foreground:#12334A; --card-foreground:#12334A;
+  --primary:#087EBD; --primary-strong:#066995; --primary-foreground:#FFFFFF;
+  --link:#087EBD; --highlight:#00A99D; --highlight-foreground:#FFFFFF;
+  --accent:#F0FAFC; --accent-foreground:#12334A;
+  --muted:#F8FBFC; --muted-foreground:#5B7280;
+  --border:#E2EBEF; --input:#DCE8ED; --ring:#087EBD;
+  --font-sans:"Be Vietnam Pro",Arial,sans-serif;
+  --font-heading:"Be Vietnam Pro",Arial,sans-serif;
+  font-family:var(--font-sans);
+}
+.danest-public-surface :is(h1,h2,h3,h4) {
+  font-family:var(--font-heading);
+  letter-spacing:-.025em;
+  line-height:1.23;
+}
+.danest-public-surface :is(p,span,button,input,select,label) {
+  font-family:var(--font-sans);
+  font-synthesis:none;
+}
+.danest-public-home { background:#FFFFFF!important; }
+.danest-public-home > section { background:#FFFFFF!important; background-image:none!important; }
+.danest-public-home > section:first-child {
+  background-image:radial-gradient(ellipse 55% 55% at 88% 4%,rgba(0,169,157,.055),transparent 80%)!important;
+}
+.danest-public-home .danest-v6-hero {
+  background:#123D54!important;
+  border-radius:1.5rem;
+  overflow:hidden;
+  isolation:isolate;
+  box-shadow:0 16px 36px rgba(18,51,74,.10);
+}
+.danest-public-home .danest-v6-hero > .danest-v6-photo {
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  z-index:0;
+  -webkit-mask-image:none!important;
+  mask-image:none!important;
+}
+.danest-public-home .danest-v6-hero > .danest-v6-photo img {
+  width:100%; height:100%;
+  object-fit:cover; object-position:center center;
+}
+.danest-public-home .danest-v6-hero::before {
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(90deg,
+    #123D54 0%, rgba(18,61,84,.98) 24%,
+    rgba(18,61,84,.84) 39%, rgba(18,61,84,.28) 59%,
+    rgba(18,61,84,0) 78%);
+}
+.danest-public-home .danest-v6-hero > .danest-v6-copy {
+  position:relative!important; z-index:2;
+  width:54%;
+  min-height:520px;
+  background:transparent!important;
+}
+.danest-public-home .danest-v6-hero h1 {
+  font-weight:600; line-height:1.13; letter-spacing:-.028em;
+}
+.danest-public-home .danest-v6-hero p { letter-spacing:0; }
+.danest-public-home .danest-v6-hero button {
+  font-family:var(--font-sans); font-size:13px; font-weight:600;
+  letter-spacing:0; box-shadow:none;
+}
+.danest-public-home .danest-v6-hero + div {
+  background:#FFFFFF; border:1px solid #E2EBEF;
+  box-shadow:0 12px 30px rgba(18,51,74,.075)!important;
+}
+.danest-public-home .danest-v6-hero + div :is(select,input) {
+  background:#FFFFFF; border-color:#DCE8ED;
+}
+.danest-public-home .danest-v6-hero + div button:last-child {
+  background:#087EBD!important; color:#FFFFFF!important;
+}
+.danest-public-home :is(.rounded-xl,.rounded-2xl).border {
+  border-color:#E2EBEF;
+}
+.danest-public-home .text-muted-foreground { color:#5B7280; }
+.danest-public-home #how-it-works h2 {
+  font-size:clamp(1.7rem,2.6vw,2.25rem); line-height:1.2;
+  font-weight:600; letter-spacing:-.03em;
+}
+.danest-public-home #how-it-works .mx-auto.max-w-2xl > p:last-child {
+  font-size:14px; line-height:1.65;
+}
+.danest-public-home #how-it-works ol > li {
+  background:#FFFFFF; border:1px solid #E2EBEF;
+  box-shadow:0 4px 16px rgba(18,51,74,.025);
+}
+.danest-public-home #how-it-works ol > li :is(h3,p) { line-height:1.55; }
+@media(max-width:1023px) {
+  .danest-public-home .danest-v6-hero > .danest-v6-copy {
+    width:100%; min-height:480px;
+  }
+  .danest-public-home .danest-v6-hero::before {
+    background:linear-gradient(90deg,rgba(18,61,84,.95),rgba(18,61,84,.65) 65%,rgba(18,61,84,.25));
+  }
+}
+@media(max-width:639px) {
+  .danest-public-home .danest-v6-hero > .danest-v6-copy { min-height:500px; }
+  .danest-public-home .danest-v6-hero::before {
+    background:linear-gradient(180deg,rgba(18,61,84,.98),rgba(18,61,84,.87) 55%,rgba(18,61,84,.24));
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .danest-public-home *, .danest-public-surface * { animation:none!important; transition:none!important; }
+}
+
+/* V9 Bright Coastal: full-bleed hero and cohesive public-facing palette */
+:root {
+  --danest-blue:#087EBD;
+  --danest-ink:#12334A;
+  --danest-teal:#00A99D;
+  --danest-line:#E2EBEF;
+}
+body { background:#FFFFFF; }
+.danest-public-home { background:#FFFFFF!important; }
+.danest-public-home > section:first-child {
+  background:#FFFFFF!important;
+  background-image:none!important;
+}
+.danest-public-home .danest-v6-hero {
+  border-radius:0!important;
+  box-shadow:none!important;
+  width:100%;
+  min-height:560px;
+}
+.danest-public-home .danest-v6-hero > .danest-v6-copy {
+  min-height:560px;
+  width:55%;
+}
+.danest-public-home .danest-v6-hero::before {
+  background:linear-gradient(90deg,
+  rgba(14,55,78,.99) 0%,
+  rgba(14,55,78,.97) 23%,
+  rgba(14,55,78,.78) 39%,
+  rgba(14,55,78,.28) 61%,
+  rgba(14,55,78,0) 82%)!important;
+}
+.danest-public-home .danest-v6-hero + div {
+  max-width:1280px;
+  width:calc(100% - 48px);
+  margin-left:auto!important;
+  margin-right:auto!important;
+  border-radius:16px;
+}
+.danest-public-home #how-it-works .text-\[\#826F55\] {
+  color:#087EBD!important;
+}
+.danest-public-home :is(h2,h3) { color:#12334A; }
+.danest-public-home .bg-card { background-color:#FFFFFF; }
+.danest-public-home :is(button,a) { transition:background-color .2s,color .2s,border-color .2s,transform .2s; }
+@media(max-width:1023px){
+ .danest-public-home .danest-v6-hero > .danest-v6-copy { width:100%; min-height:480px; padding-left:clamp(1.5rem,5vw,3rem); }
+ .danest-public-home .danest-v6-hero { min-height:480px; }
+}
+@media(max-width:639px){
+ .danest-public-home .danest-v6-hero { min-height:500px; }
+ .danest-public-home .danest-v6-hero > .danest-v6-copy { min-height:500px; }
+ .danest-public-home .danest-v6-hero + div { width:calc(100% - 24px); }
+}
+
+/* Public header shares the same white/blue visual language as the hero */
+.danest-site-header {
+  background:rgba(255,255,255,.97)!important;
+  border-bottom:1px solid #E2EBEF!important;
+  color:#12334A;
+  font-family:"Be Vietnam Pro",Arial,sans-serif;
+}
+.danest-site-header .bg-primary { background:#087EBD!important; }
+.danest-site-header .text-foreground { color:#12334A!important; }
+.danest-site-header .text-link { color:#087EBD!important; }
+.danest-site-header .bg-secondary { background:#EAF8FB!important; color:#12334A!important; }
+.danest-site-header :is(a,button) { font-size:13px; letter-spacing:0; }
+.danest-site-header :is(a,button):hover { color:#087EBD; }
+.danest-site-header :is(.bg-accent,.hover\:bg-accent:hover) { background-color:#EAF8FB!important; }
+
+/* V10 targeted contrast polish: neighborhood image overlays and landlord panel */
+.danest-public-home .danest-neighborhood-card { isolation:isolate; border:1px solid #E2EBEF; }
+.danest-public-home .danest-neighborhood-card h3 { color:#FFFFFF!important; font-weight:650; text-shadow:0 1px 6px rgba(0,0,0,.22); }
+.danest-public-home .danest-neighborhood-card p { color:#FFFFFF!important; }
+.danest-public-home .danest-neighborhood-card p:not(:first-child) { font-size:13px; line-height:1.55; }
+.danest-public-home .danest-neighborhood-card span { background:#087EBD!important; color:#FFFFFF!important; border-color:#087EBD!important; }
+.danest-public-home .danest-neighborhood-card span:hover { background:#066995!important; }
+.danest-public-home .danest-step-card { border-color:#C8E4F0!important; background:#FFFFFF!important; }
+.danest-public-home .danest-step-card h3 { color:#12334A!important; }
+.danest-public-home .danest-landlord-cta { background:linear-gradient(115deg,#087EBD 0%,#066995 100%)!important; }
+.danest-public-home .danest-landlord-cta h2 { color:#FFFFFF!important; }
+.danest-public-home .danest-landlord-cta dl > div { background:rgba(255,255,255,.16)!important; border-color:rgba(255,255,255,.65)!important; }
+.danest-public-home .danest-landlord-cta dl :is(dt,dd) { color:#FFFFFF!important; }
+
+/* V11 — Explore refresh: restrained ocean gradients, clear filters, restored map controls */
+.danest-site-header { position:sticky!important; top:0; z-index:1000; background:rgba(255,255,255,.94)!important; -webkit-backdrop-filter:blur(16px) saturate(145%); backdrop-filter:blur(16px) saturate(145%); border-bottom:1px solid rgba(196,217,226,.7)!important; }
+.danest-site-header.danest-header-scrolled { background:rgba(255,255,255,.79)!important; box-shadow:0 6px 24px rgba(18,51,74,.09)!important; }
+.danest-explore-page { position:relative; isolation:isolate; background:#fff!important; }
+.danest-explore-page::before { content:"";position:absolute;top:0;left:0;right:0;height:700px;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 52% 43% at 8% 8%,rgba(8,126,189,.105),transparent 78%),radial-gradient(ellipse 44% 42% at 95% 22%,rgba(0,169,157,.09),transparent 78%),linear-gradient(180deg,#f7fcff 0%,#fff 90%); }
+.danest-explore-intro { background:linear-gradient(112deg,#e8f7fd 0%,#f3fbfe 50%,#fff 100%)!important;border:1px solid #b9dfed!important;box-shadow:0 10px 30px rgba(8,126,189,.065); }
+.danest-explore-intro h1 { color:#12334a!important;font-weight:650;letter-spacing:-.035em; }
+.danest-explore-intro p { color:#4c6c7b!important; }
+.danest-explore-intro button[aria-expanded] { background:#087ebd!important;color:#fff!important;border-color:#087ebd!important; }
+.danest-explore-intro button[aria-pressed="true"] { color:#087ebd!important;background:#fff!important;border-color:#a9d5e8!important; }
+.danest-explore-page .danest-filter-dialog { background:#fff!important; border-color:#d7e9f1!important;box-shadow:-16px 0 44px rgba(18,51,74,.11); }
+.danest-explore-filters > div:first-child { background:rgba(255,255,255,.96)!important; }
+.danest-filter-panel > div:first-child { border-bottom:1px solid #e3eef3;padding-bottom:14px; }
+.danest-filter-fields { padding-bottom:16px; }
+.danest-filter-fields .danest-filter-group { margin:0;padding:15px 16px 17px;border:1px solid #dcecf3;border-radius:14px;background:#f7fbfd; }
+.danest-filter-fields .danest-filter-group legend { float:none;width:auto;padding:0 5px;color:#12334a;font-weight:650; }
+.danest-filter-fields .danest-filter-group label { line-height:1.45; }
+.danest-filter-fields .danest-filter-group input[type="checkbox"] { accent-color:#087ebd; }
+.danest-filter-fields .danest-filter-range { border-radius:12px;background:#f7fbfd;padding:12px;border:1px solid #e0edf3; }
+.danest-filter-fields :is(input:not([type="checkbox"]),select) { border-color:#cbdfe8;background:#fff;border-radius:10px; }
+.danest-filter-fields :is(input:not([type="checkbox"]),select):focus-visible { outline:2px solid #087ebd;outline-offset:1px; }
+.danest-filter-fields .danest-filter-quick { padding:2px 0 4px; }
+.danest-filter-fields .danest-filter-quick button { border-color:#c4dfe9;background:#fff;color:#164761; }
+.danest-filter-fields .danest-filter-quick button[aria-pressed="true"] { background:#087ebd;color:#fff;border-color:#087ebd; }
+.danest-filter-fields .danest-amenities-grid { column-gap:12px;row-gap:12px; }
+.danest-explore-map { position:relative; }
+.danest-explore-map .leaflet-top.leaflet-left { top:16px;left:16px;z-index:800; }
+.danest-explore-map .leaflet-control-zoom { border:1px solid #c9e1eb!important;border-radius:12px!important;overflow:hidden;box-shadow:0 5px 18px rgba(18,51,74,.16)!important; }
+.danest-explore-map .leaflet-control-zoom a { width:38px!important;height:38px!important;line-height:38px!important;background:#fff!important;color:#087ebd!important;font-size:21px!important; }
+.danest-explore-map .leaflet-control-zoom a:hover { background:#e9f7fd!important; }
+@media(max-width:639px) { .danest-explore-intro { padding:20px!important; } .danest-filter-fields .danest-filter-group { padding:12px; } }
+
+/* V12 – white canvas, restrained ocean-blue light, and repaired filter layout. */
+.danest-public-home {background:#fff!important;background-image:radial-gradient(ellipse 42% 17% at 94% 22%,rgba(8,126,189,.07),transparent 90%),radial-gradient(ellipse 36% 16% at 2% 47%,rgba(0,169,157,.06),transparent 90%),radial-gradient(ellipse 40% 15% at 88% 76%,rgba(8,126,189,.055),transparent 90%)!important;}
+.danest-public-home > section:not(:first-child) {background:transparent!important;background-image:none!important;}
+.danest-about-page {background-color:#fff!important;background-image:radial-gradient(ellipse 45% 24% at 95% 7%,rgba(8,126,189,.085),transparent 86%),radial-gradient(ellipse 40% 19% at 3% 56%,rgba(0,169,157,.06),transparent 86%)!important;}
+.danest-about-page > section {background:transparent!important;}
+.danest-about-page .danest-about-hero > div {padding-top:72px;padding-bottom:78px;}
+.danest-about-page .danest-about-accent {font-style:normal;color:#087EBD;font-weight:650;}
+.danest-about-page .danest-about-photo {box-shadow:0 24px 60px rgba(18,51,74,.12);border:1px solid #e2ebef;}
+.danest-about-page .danest-about-principle {border:1px solid #d7eaf2!important;background:#fff!important;box-shadow:0 8px 26px rgba(8,126,189,.045)!important;transition:transform .2s,box-shadow .2s;}
+.danest-about-page .danest-about-principle:hover {transform:translateY(-3px);box-shadow:0 16px 36px rgba(8,126,189,.09)!important;}
+.danest-about-page .danest-about-principle > span {background:#e8f7fd!important;color:#087ebd!important;}
+.danest-about-page .danest-about-contact {border-top:1px solid #e2ebef;}
+.danest-about-page :is(h1,h2,h3) {color:#12334a;}
+.danest-about-page p.text-muted-foreground {color:#587080;}
+.danest-notifications-page {background:#fff;background-image:radial-gradient(ellipse 45% 42% at 94% 4%,rgba(8,126,189,.085),transparent 85%),radial-gradient(ellipse 40% 38% at 4% 98%,rgba(0,169,157,.055),transparent 90%);}
+.danest-notifications-page > div > h1 {color:#12334a;}
+.danest-notifications-page .rounded-xl.border,.danest-notifications-page .rounded-2xl.border {border-color:#dceaf0!important;background-color:rgba(255,255,255,.93)!important;}
+.danest-notifications-page .border-dashed {border-style:dashed!important;background:#f8fcfe!important;}
+.danest-notifications-page .bg-primary {background:#087ebd!important;}
+.danest-notifications-page .text-link {color:#087ebd!important;}
+.danest-explore-filters .danest-filter-panel > div:first-child {border-bottom:0!important;padding-bottom:0!important;}
+.danest-explore-filters .danest-filter-panel {font-size:14px;}
+.danest-explore-filters .danest-filter-fields {display:flex;flex-direction:column;gap:16px;}
+.danest-explore-filters .danest-filter-fields > * {margin-top:0!important;margin-bottom:0!important;}
+.danest-explore-filters .danest-filter-fields .danest-filter-group {padding:14px!important;}
+.danest-explore-filters .danest-filter-fields .danest-filter-group legend {float:none!important;background:transparent!important;}
+.danest-explore-filters .danest-filter-fields select {background-color:#fff!important;background-image:none!important;appearance:auto!important;-webkit-appearance:menulist!important;color:#12334a!important;padding-right:14px!important;}
+.danest-explore-filters .danest-filter-fields input {background-color:#fff!important;}
+.danest-explore-filters .danest-filter-fields .danest-filter-range {padding:10px!important;}
+@media(max-width:640px) {.danest-about-page .danest-about-hero > div {padding-top:42px;padding-bottom:48px;}}
+
+/* V13 Bright Coastal: contact, authentication and admin experience. */
+.danest-about-page .danest-about-contact {
+  background:linear-gradient(115deg,#f2faff 0%,#fff 54%,#effbfa 100%)!important;
+  border-top:1px solid #d9ebf3!important;
+}
+.danest-about-page .danest-about-contact :is(h2,h3) {color:#12334a!important;}
+.danest-about-page .danest-about-contact .rounded-2xl,
+.danest-about-page .danest-about-contact .rounded-xl {
+  background:#fff!important;border:1px solid #cce4ef!important;
+  box-shadow:0 10px 28px rgba(8,126,189,.06);
+}
+.danest-about-page .danest-about-contact svg {color:#087ebd!important;}
+.danest-about-page .danest-about-contact a {color:#087ebd;}
+.danest-login-page {
+  background:#fff!important;
+  background-image:radial-gradient(ellipse 38% 48% at 0% 10%,rgba(8,126,189,.095),transparent 86%),
+    radial-gradient(ellipse 35% 50% at 100% 90%,rgba(0,169,157,.085),transparent 85%)!important;
+}
+.danest-login-page .danest-login-photo {
+  border:1px solid #d9eaf1;box-shadow:0 22px 55px rgba(18,51,74,.12);
+}
+.danest-login-page .danest-login-photo > div[aria-hidden="true"] {
+  background:linear-gradient(180deg,rgba(18,51,74,.02) 20%,rgba(12,56,79,.88) 100%)!important;
+}
+.danest-login-page .danest-login-card {
+  background:#fff!important;border:1px solid #d8e8f0!important;
+  box-shadow:0 20px 52px rgba(18,51,74,.09)!important;
+}
+.danest-login-page .danest-login-card input {
+  background:#fff!important;border-color:#cfe3ed!important;
+}
+.danest-login-page .danest-login-card input:focus-visible {
+  outline:2px solid #087ebd;outline-offset:1px;
+}
+.danest-login-page .danest-login-card button[type="submit"] {
+  background:#087ebd!important;color:white!important;border-color:#087ebd!important;
+}
+.danest-login-page .danest-login-card button[type="submit"]:hover {background:#066b9d!important;}
+.danest-login-page .danest-login-card [role="tablist"] {background:#edf7fb!important;border-color:#d9eaf1!important;}
+.danest-login-page .danest-login-card a {color:#087ebd;}
+.danest-admin-v13 {
+  --primary:#087ebd;--primary-foreground:#fff;--link:#087ebd;
+  --sidebar:#fff;--sidebar-foreground:#12334a;--sidebar-accent:#e8f7fd;
+  --sidebar-accent-foreground:#087ebd;--sidebar-border:#dceaf0;
+  --background:#fff;--foreground:#12334a;--card:#fff;--card-foreground:#12334a;
+  --muted:#f3f9fc;--muted-foreground:#5b7280;--border:#dceaf0;
+  background:#fff!important;
+  background-image:radial-gradient(ellipse 48% 30% at 95% 0%,rgba(8,126,189,.075),transparent 88%)!important;
+  color:#12334a;
+  font-family:"Be Vietnam Pro",Arial,sans-serif;
+}
+.danest-admin-v13 aside {
+  background:#fff!important;border-right:1px solid #dceaf0!important;
+  box-shadow:5px 0 24px rgba(18,51,74,.035);
+}
+.danest-admin-v13 aside nav > div {padding-top:18px;}
+.danest-admin-v13 aside nav a[aria-current="page"] {
+  background:#e8f7fd!important;color:#087ebd!important;
+  box-shadow:inset 3px 0 0 #087ebd;
+}
+.danest-admin-v13 aside nav a:hover {background:#f0faff!important;color:#087ebd!important;}
+.danest-admin-v13 .danest-admin-topbar {
+  background:rgba(255,255,255,.9)!important;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid #dceaf0!important;
+}
+.danest-admin-v13 .danest-admin-content {background:transparent!important;}
+.danest-admin-v13 .danest-admin-content .rounded-2xl.border {
+  background:#fff!important;border-color:#d9e8ef!important;
+  box-shadow:0 8px 25px rgba(18,51,74,.035)!important;
+}
+.danest-admin-v13 .danest-admin-kpi {position:relative;overflow:hidden;}
+.danest-admin-v13 .danest-admin-kpi::before {
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#087ebd;
+}
+.danest-admin-v13 .danest-admin-kpi > div > span:first-child {
+  background:#e8f7fd!important;color:#087ebd!important;
+}
+.danest-admin-v13 .danest-admin-kpi > div > span:last-child {color:#12334a!important;}
+.danest-admin-v13 .danest-admin-content h1 {font-weight:650;letter-spacing:-.025em;}
+.danest-admin-v13 .danest-admin-content button.bg-primary,
+.danest-admin-v13 .danest-admin-content a.bg-primary {background:#087ebd!important;color:#fff!important;}
+.danest-admin-v13 :is(button,a) {transition:background-color .2s,color .2s,border-color .2s;}
+@media(max-width:1023px) {
+  .danest-admin-v13 .danest-admin-dialog {background:#fff!important;}
+}
+
+/* V14: unified Bright Coastal workspaces and account menu */
+.danest-account-menu {background:#fff!important;border:1px solid #cce4f0!important;box-shadow:0 22px 50px rgba(18,51,74,.16)!important;}
+.danest-account-menu > div:first-child {background:linear-gradient(110deg,#EAF8FE,#F4FCFD);border-radius:12px;margin-bottom:5px;border-bottom:0!important;padding:13px!important;}
+.danest-account-menu a,.danest-account-menu button {color:#17384d!important;border-radius:10px!important;}
+.danest-account-menu a:hover,.danest-account-menu button:hover {background:#E8F7FD!important;color:#087EBD!important;}
+.danest-account-menu svg {color:#087EBD!important;}
+.danest-account-menu .bg-primary {background:#087EBD!important;color:#fff!important;}
+.danest-landlord-v14 {--primary:#087EBD;--primary-foreground:#fff;--link:#087EBD;--sidebar:#fff;--sidebar-foreground:#12334A;--sidebar-accent:#E8F7FD;--sidebar-accent-foreground:#087EBD;--sidebar-border:#D8EAF2;--background:#fff;--foreground:#12334A;--card:#fff;--card-foreground:#12334A;--muted:#F4FAFD;--muted-foreground:#5B7280;--border:#D8EAF2;background:#fff!important;background-image:radial-gradient(ellipse 40% 30% at 95% 0%,rgba(8,126,189,.07),transparent 88%)!important;}
+.danest-landlord-v14 aside {background:#fff!important;border-right:1px solid #D8EAF2!important;box-shadow:4px 0 25px rgba(18,51,74,.035);}
+.danest-landlord-v14 aside nav a[aria-current="page"] {background:#E8F7FD!important;color:#087EBD!important;box-shadow:inset 3px 0 #087EBD;}
+.danest-landlord-v14 aside nav a:hover {background:#F0FAFE!important;color:#087EBD!important;}
+.danest-landlord-v14 .danest-landlord-topbar {background:rgba(255,255,255,.92)!important;backdrop-filter:blur(16px);border-color:#D8EAF2!important;}
+.danest-landlord-v14 .danest-landlord-content {background:transparent!important;}
+.danest-landlord-v14 .danest-landlord-content :is(.rounded-xl,.rounded-2xl).border {border-color:#D8EAF2!important;box-shadow:0 7px 25px rgba(18,51,74,.035);}
+.danest-landlord-v14 .danest-landlord-content .bg-primary {background:#087EBD!important;color:white!important;}
+.danest-landlord-v14 .danest-landlord-content .bg-accent {background:#E8F7FD!important;color:#087EBD!important;}
+.danest-landlord-v14 .danest-landlord-content .text-link {color:#087EBD!important;}
+.danest-landlord-v14 .danest-landlord-content :is(input,select,textarea) {border-color:#CFE4EE;}
+.danest-notifications-page {background-color:#fff!important;background-image:radial-gradient(ellipse 45% 42% at 96% 6%,rgba(8,126,189,.075),transparent 85%),radial-gradient(ellipse 45% 42% at 0% 98%,rgba(0,169,157,.055),transparent 88%)!important;}
+.danest-notifications-page .danest-notice-toolbar {background:#fff!important;border:1px solid #D4E9F2!important;box-shadow:0 7px 20px rgba(18,51,74,.035);}
+.danest-notifications-page .danest-notice-item {background:#fff!important;border:1px solid #D8EAF2!important;box-shadow:0 5px 18px rgba(18,51,74,.035);padding:16px 20px!important;}
+.danest-notifications-page .danest-notice-item:has(.danest-notice-time) {transition:border-color .2s,box-shadow .2s;}
+.danest-notifications-page .danest-notice-item:hover {border-color:#8EC9E4!important;box-shadow:0 10px 24px rgba(8,126,189,.075)!important;}
+.danest-notifications-page .danest-notice-item.border-l-4 {border-left:4px solid #087EBD!important;background:#F5FBFF!important;}
+.danest-notifications-page .danest-notice-item h2 {color:#12334A;font-size:14px;}
+.danest-notifications-page .danest-notice-time {color:#668394;}
+.danest-admin-v13 .danest-admin-overview .danest-admin-kpi {border-color:#D6EAF3!important;}
+.danest-admin-v13 .danest-admin-overview .danest-admin-kpi::before {background:#087EBD!important;}
+.danest-admin-v13 .danest-admin-overview .danest-admin-kpi > div > span:first-child {background:#E8F7FD!important;color:#087EBD!important;}
+
+/* V15 – all Admin modules, action buttons and responsive navigation */
+.danest-admin-v13 .danest-admin-content :is(section,article).border,
+.danest-admin-v13 .danest-admin-content .rounded-xl.border,
+.danest-admin-v13 .danest-admin-content .rounded-lg.border {
+ border-color:#d5e8f0!important;
+ box-shadow:0 5px 22px rgba(8,126,189,.035);
+}
+.danest-admin-v13 .danest-admin-content .bg-muted,
+.danest-admin-v13 .danest-admin-content thead {
+ background:#f1f9fd!important;
+}
+.danest-admin-v13 .danest-admin-content thead th {
+ color:#45677b!important;font-weight:650;letter-spacing:.04em;
+}
+.danest-admin-v13 .danest-admin-content tbody tr:hover {background:#f5fbfe!important;}
+.danest-admin-v13 .danest-admin-content :is(input,select,textarea) {
+ border-color:#d1e5ef!important;background:#fff!important;color:#12334a;
+}
+.danest-admin-v13 .danest-admin-content :is(input,select,textarea):focus {
+ border-color:#087ebd!important;outline-color:#087ebd!important;
+}
+.danest-admin-v13 .danest-admin-content button:not([disabled]):hover {
+ border-color:#92cde6;
+}
+.danest-admin-v13 .danest-admin-content .danest-review-button {
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important;
+ min-width:92px!important;width:auto!important;max-width:none!important;
+ background:#e8f7fd!important;color:#087ebd!important;border-color:#b9dfed!important;
+}
+.danest-admin-v13 .danest-admin-content .danest-review-button:hover {
+ background:#087ebd!important;color:#fff!important;
+}
+.danest-admin-v13 .danest-admin-content .danest-review-button * {white-space:nowrap!important;}
+.danest-admin-v13 .danest-admin-language {flex-shrink:0;}
+.danest-admin-v13 .danest-admin-nav-collapsed .danest-admin-language {margin-inline:auto;}
+.danest-admin-v13 .danest-admin-content :is(.text-warning,.text-destructive,.text-success) {font-weight:600;}
+@media(min-width:1024px) {
+ .danest-admin-v13 aside {transition:width .2s ease;}
+}
+
+/* V16: Leaflet controls must use Leaflet's absolute-positioned control corners. */
+.danest-public-surface .leaflet-control-container {position:static!important;z-index:auto!important;}
+.danest-explore-map .leaflet-top.leaflet-left {position:absolute!important;top:16px!important;left:16px!important;z-index:1000!important;}
+.danest-explore-map .leaflet-control-zoom {display:block!important;visibility:visible!important;opacity:1!important;}
+.danest-language-menu {box-shadow:0 12px 30px rgba(8,71,109,.15)!important;}
+.danest-language-trigger:hover {border-color:#80CBE8!important;}
+
+/* V17 — admin reports, logo and supporting typography */
+.danest-about-page .danest-about-supporting{color:#557083!important;font-weight:400!important;font-style:italic!important;font-size:14px!important;line-height:1.85!important;letter-spacing:.005em}
+.danest-brand-mark{background:linear-gradient(145deg,#078CCC,#065D89)!important;box-shadow:0 3px 12px rgba(7,126,189,.17)}
+.danest-admin-reports .danest-report-stat{box-shadow:0 6px 22px rgba(15,77,108,.045);border-color:#CFE7F2!important;background:#fff!important}
+.danest-admin-reports .danest-report-stat--open{border-top:3px solid #168FC8!important;background:linear-gradient(155deg,#F0FAFF,#fff 58%)!important}
+.danest-admin-reports .danest-report-stat--resolved{border-top:3px solid #12B7A3!important;background:linear-gradient(155deg,#F0FFFC,#fff 58%)!important}
+.danest-admin-reports .danest-report-stat--unresolved{border-top:3px solid #E6A548!important;background:linear-gradient(155deg,#FFFBF3,#fff 58%)!important}
+.danest-admin-reports .danest-report-stat p:first-child{color:#496D82!important;font-weight:600}
+.danest-admin-reports .danest-report-stat p:last-child{font-size:30px!important;font-weight:750;color:#123C56!important}
+.danest-admin-reports .danest-report-list>li>div{border:1px solid #D4E9F2!important;border-radius:18px!important;background:#fff!important;box-shadow:0 5px 22px rgba(15,77,108,.045)!important;padding:22px!important}
+.danest-admin-reports .danest-report-item--open>div{border-left:3px solid #0B8FC9!important}
+.danest-admin-reports .danest-report-item--resolved>div{border-left:3px solid #12B7A3!important}
+.danest-admin-reports .danest-report-item--unresolved>div{border-left:3px solid #E6A548!important}
+.danest-admin-reports .danest-report-listing{border-color:#D5EAF3!important;background:#F5FBFE!important}
+.danest-admin-reports button{white-space:nowrap}
+.danest-admin-reports .danest-report-list button:hover{border-color:#68B7DA!important;background:#EAF8FE!important;color:#076FA5!important}
+.danest-admin-reports .danest-report-list button.text-destructive{color:#B93E47!important}
+.danest-admin-reports .danest-report-list button.text-destructive:hover{border-color:#EAB8BD!important;background:#FFF2F2!important;color:#A92934!important}
+@media(min-width:768px){.danest-about-page .danest-about-supporting{font-size:15px!important}}

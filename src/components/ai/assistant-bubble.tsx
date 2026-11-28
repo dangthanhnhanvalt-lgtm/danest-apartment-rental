@@ -1,4 +1,4 @@
-import { Minus, Sparkles, X } from "lucide-react";
+import { Sparkles, X, Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "~/lib/router";
 import { MatchAssistant } from "~/components/match/assistant";
@@ -7,94 +7,29 @@ import { cn } from "~/lib/utils";
 
 export function AssistantBubble() {
   const { path } = useRouter();
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [session, setSession] = useState(0);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    const timer = window.setTimeout(() => {
-      const first = panelRef.current?.querySelector<HTMLElement>("button, input");
-      first?.focus();
-    }, 60);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      window.clearTimeout(timer);
-    };
-  }, [open]);
-
-  const close = () => {
-    setOpen(false);
-    window.setTimeout(() => buttonRef.current?.focus(), 0);
-  };
-
-  // On the dedicated matching page the same assistant already fills the screen.
-  if (path === "/match") return null;
-
-  return (
-    <div className="fixed right-4 z-[80] flex flex-col items-end gap-3 sm:right-6 max-lg:bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-6">
-      {open ? (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="false"
-          aria-label={t("ai.open")}
-          className="flex h-[min(78vh,640px)] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card animate-in fade-in slide-in-from-bottom-3 sm:w-[420px]"
-          style={{ boxShadow: "var(--shadow-overlay)" }}
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-            <p className="text-sm font-semibold text-card-foreground">{t("ai.askDanest")}</p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={close}
-                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={t("ai.minimiseShort")}
-              >
-                <Minus className="size-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={close}
-                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={t("ai.close")}
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          <div className="min-h-0 flex-1">
-            <MatchAssistant key={session} variant="compact" />
-          </div>
-        </div>
-      ) : null}
-
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => {
-          if (!open) setSession((s) => s + 1);
-          setOpen((v) => !v);
-        }}
-        aria-expanded={open}
-        aria-label={open ? t("ai.minimise") : t("ai.open")}
-        className={cn(
-          "inline-flex h-12 items-center gap-2 rounded-full border border-border bg-primary pl-3.5 pr-4 text-sm font-semibold text-primary-foreground transition-[box-shadow,background-color] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          open && "hidden",
-        )}
-        style={{ boxShadow: "var(--shadow-elevated)" }}
-      >
-        <span className="flex size-7 items-center justify-center rounded-full bg-primary-foreground text-primary">
-          <Sparkles className="size-4" aria-hidden="true" />
-        </span>
-        {t("ai.askDanest")}
-      </button>
-    </div>
-  );
+  const { t, pick } = useI18n();
+  const [open,setOpen]=useState(false);
+  const [wide,setWide]=useState(false);
+  const [session,setSession]=useState(0);
+  const panelRef=useRef<HTMLDivElement>(null);
+  const buttonRef=useRef<HTMLButtonElement>(null);
+  const close=()=>{setOpen(false);window.requestAnimationFrame(()=>buttonRef.current?.focus());};
+  // Do not cover a detail or search page after a result link was selected.
+  useEffect(()=>{setOpen(false);},[path]);
+  useEffect(()=>{
+    if(!open)return;
+    const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape"){setOpen(false);window.requestAnimationFrame(()=>buttonRef.current?.focus());}};
+    document.addEventListener("keydown",onKey);
+    const frame=window.requestAnimationFrame(()=>panelRef.current?.querySelector<HTMLElement>("button")?.focus());
+    return ()=>{document.removeEventListener("keydown",onKey);window.cancelAnimationFrame(frame);};
+  },[open]);
+  if(path==="/match")return null;
+  const detail=path.startsWith("/apartment/");
+  return <div className={cn("fixed right-3 z-[80] flex max-w-[calc(100vw-1.5rem)] flex-col items-end sm:right-6 lg:bottom-6",detail?"max-lg:bottom-[calc(6rem+env(safe-area-inset-bottom))]":"max-lg:bottom-[calc(1rem+env(safe-area-inset-bottom))]")}>
+    {open&&<div ref={panelRef} role="dialog" aria-modal="false" aria-label={t("ai.open")} className={cn("flex h-[640px] w-[calc(100vw-1.5rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card sm:w-[440px] lg:max-h-[calc(100dvh-4rem)]",detail?"max-lg:max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))]":"max-lg:max-h-[calc(100dvh-2rem-env(safe-area-inset-bottom))]",wide&&"sm:w-[min(700px,calc(100vw-3rem))]")} style={{boxShadow:"var(--shadow-overlay)"}}>
+      <div className="flex shrink-0 items-center gap-2 bg-[#172C3D] px-3 py-1.5 text-[#F7F5F0]"><p className="mr-auto text-sm font-semibold">{t("ai.askDanest")}</p><button type="button" onClick={()=>setWide(v=>!v)} aria-label={wide?pick("Compact chat","Thu nhỏ chat"):pick("Expand chat","Mở rộng chat")} aria-pressed={wide} className="hidden size-10 items-center justify-center rounded-lg hover:bg-white/10 focus-visible:ring-2 sm:flex">{wide?<Minimize2 className="size-4"/>:<Maximize2 className="size-4"/>}</button><button type="button" onClick={close} aria-label={t("ai.close")} className="flex size-10 items-center justify-center rounded-lg hover:bg-white/10 focus-visible:ring-2"><X className="size-5"/></button></div>
+      <div className="min-h-0 min-w-0 flex-1"><MatchAssistant key={session} variant="compact"/></div>
+    </div>}
+    <button ref={buttonRef} type="button" onClick={()=>{setSession(n=>n+1);setOpen(true);}} aria-expanded={open} aria-label={t("ai.open")} className={cn("inline-flex h-12 items-center gap-2 rounded-full border border-border bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary-hover focus-visible:ring-2",open&&"hidden")} style={{boxShadow:"var(--shadow-elevated)"}}><span className="flex size-7 items-center justify-center rounded-full bg-primary-foreground text-primary"><Sparkles className="size-4"/></span>{t("ai.askDanest")}</button>
+  </div>;
 }

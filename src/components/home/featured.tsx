@@ -10,20 +10,20 @@ export function FeaturedApartments() {
   const { listings, listingsLoading } = useAppState();
   const { t } = useI18n();
   const featured = useMemo(
-    () => listings.filter((l) => l.status === "published" && l.featured).slice(0, 4),
+    () => listings.filter((l) => l.status === "published").sort((a,b)=>Number(b.featured)-Number(a.featured)).slice(0, 6),
     [listings],
   );
 
   return (
     <section id="featured" className="bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-16 md:px-6 md:py-24 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-link">{t("featured.eyebrow")}</p>
             <h2 className="mt-3 font-heading text-3xl font-medium text-foreground text-balance md:text-4xl">
               {t("featured.title")}
             </h2>
-            <p className="mt-3 text-base text-muted-foreground md:text-lg">
+            <p className="mt-2 text-sm italic text-muted-foreground md:text-base">
               {t("featured.subtitle")}
             </p>
           </div>
@@ -35,9 +35,9 @@ export function FeaturedApartments() {
           </Link>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-7 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {listingsLoading
-            ? Array.from({ length: 4 }).map((_, i) => (
+            ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="space-y-3">
                   <Skeleton className="aspect-[4/3] w-full rounded-2xl" />
                   <Skeleton className="h-4 w-2/3" />
@@ -46,7 +46,7 @@ export function FeaturedApartments() {
               ))
             : featured.map((listing) => <ListingCard key={listing.id} listing={listing} />)}
         </div>
-        <SampleDataNote className="mt-6" />
+        {featured.some(l => l.isSample) && <SampleDataNote className="mt-6" />}
       </div>
     </section>
   );

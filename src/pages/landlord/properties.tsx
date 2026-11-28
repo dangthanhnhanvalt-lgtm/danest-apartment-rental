@@ -1,10 +1,12 @@
+import { EvidencePanel } from "~/components/verification/evidence-panel";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, Search, Clock, FilePen, EyeOff, CircleCheck, Archive, CircleX } from "lucide-react";
 import { formatDate, formatRent, todayISO } from "~/lib/format";
 import { availabilityStatus } from "~/lib/availability";
 import { MODERATION_LABEL } from "~/lib/moderation";
 import { Link } from "~/lib/router";
 import { useAppState } from "~/state/app-state";
+import { listingUuid, saveSupabaseListing, submitSupabaseListing } from "~/api/supabase-listings";
 import { useLandlordIdentity } from "~/pages/landlord/use-landlord-identity";
 import { useToast } from "~/components/ui/toast";
 import { Button } from "~/components/ui/button";
@@ -35,17 +37,23 @@ const availabilityLabel: Record<Availability, string> = {
 function StatusBadge({ status }: { status: ListingStatus }) {
   const { t } = useI18n();
   const tone = statusBadge[status];
+  const Icon=({published:CircleCheck,paused:EyeOff,draft:FilePen,pending:Clock,"needs-attention":AlertTriangle,rejected:CircleX,hidden:EyeOff,archived:Archive})[status];
   return (
-    <span className={cn("inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium", tone.classes)}>
-      {t(tone.labelKey)}
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium", tone.classes)}>
+      <Icon className="size-3.5 shrink-0" aria-hidden="true"/>{t(tone.labelKey)}
     </span>
   );
 }
 
+function ReviewSummary({listing}:{listing:Listing}) {
+  const {pick,t}=useI18n();const auto=listing.moderation.autoReviewedAt;const manual=listing.moderation.manualReview;
+  const decision=manual?({approved:pick("Approved","Đã duyệt"),rejected:pick("Rejected","Đã từ chối"),"corrections-requested":pick("Corrections requested","Yêu cầu bổ sung"),hidden:pick("Hidden","Đã ẩn"),restored:pick("Restored","Đã khôi phục")})[manual.decision]:null;
+  return <details className="mt-2 rounded-lg border border-border p-2 text-xs"><summary className="cursor-pointer font-medium">{pick("Review details","Tiến trình kiểm duyệt")}</summary><dl className="mt-2 space-y-2 border-l border-border pl-3"><div><dt className="text-muted-foreground">{pick("Automated check","Kiểm tra tự động")}</dt><dd className="font-medium">{auto?`${t(({passed:"landlord.moderation.passed","needs-attention":"landlord.moderation.needsAttention",rejected:"landlord.moderation.rejected",incomplete:"landlord.moderation.incomplete"})[listing.moderation.result])} · ${formatDate(auto)}`:pick("No recorded check","Chưa có lần kiểm tra")}</dd></div><div><dt className="text-muted-foreground">{pick("Admin review","Admin xét duyệt")}</dt><dd className="font-medium">{decision??pick("No recorded decision","Chưa có quyết định ghi nhận")}</dd>{manual?.reason&&<dd className="break-words">{manual.reason}</dd>}</div><div><dt className="text-muted-foreground">{pick("Current listing status","Trạng thái tin hiện tại")}</dt><dd><StatusBadge status={listing.status}/></dd></div><div><dt className="text-muted-foreground">{pick("Evidence verification (separate)","Xác minh minh chứng (riêng biệt)")}</dt><dd>{listing.verificationBadge?pick("Basic verification","Xác minh cơ bản"):pick("Not verified","Chưa xác minh")}</dd></div></dl></details>;
+}
 function useListingActions() {
-  const { updateListing } = useAppState();
+  const { updateListing, refreshListings } = useAppState();
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
 
   const setAvailability = async (listing: Listing, availability: Availability) => {
     await updateListing(listing.id, { availability });
@@ -58,38 +66,37 @@ function useListingActions() {
   };
 
   const setRent = async (listing: Listing, monthlyRent: number) => {
-    await updateListing(listing.id, { monthlyRent, costs: { ...listing.costs, monthlyRent } });
-    toast({
-      title: t("landlord.availability.priceUpdated"),
-      description: t("landlord.availability.priceUpdatedDesc", { title: listing.title, price: formatRent(monthlyRent) }),
-      tone: "success",
-    });
-  };
-
-  const submitForVerification = async (listing: Listing) => {
-    const today = todayISO();
-    const checks = listing.verification.checks.map((c) =>
-      c.status === "verified" ? c : { ...c, status: "in-review" as const, lastUpdated: today },
-    );
-    await updateListing(listing.id, {
-      verification: { ...listing.verification, checks },
-      verificationBadge: false,
-    });
-    toast({
-      title: t("landlord.availability.submitted"),
-      description: t("landlord.availability.submittedDesc"),
-      tone: "success",
-    });
+    const uuid = await listingUuid(listing.id);
+    await saveSupabaseListing({...listing,monthlyRent,costs:{...listing.costs,monthlyRent}},uuid);
+    try {
+      const result = await submitSupabaseListing(uuid);
+      toast({title: result.status === "pending" ? pick("Price saved; awaiting review", "Đã lưu giá; chờ duyệt") : pick("Price saved; check moderation result", "Đã lưu giá; kiểm tra kết quả kiểm duyệt"), description:result.moderation.reasons.join("; ") || listing.title,tone:result.status === "pending" ? "success" : "warning"});
+    } finally { await refreshListings(); }
   };
 
   const togglePause = async (listing: Listing) => {
-    const next: ListingStatus = listing.status === "published" ? "paused" : "published";
-    await updateListing(listing.id, { status: next });
-    toast({
-      title: next === "paused" ? t("landlord.availability.paused") : t("landlord.availability.republished"),
-      description: listing.title,
-      tone: "success",
-    });
+    if (listing.status === "published") {
+      await updateListing(listing.id, { status: "paused" });
+      toast({ title: t("landlord.availability.paused"), description: listing.title, tone: "success" });
+      return;
+    }
+    const uuid = await listingUuid(listing.id);
+    const result = await submitSupabaseListing(uuid);
+    await refreshListings();
+    const reasons = result.moderation.reasons.map(reason => {
+      if (reason === "Missing: available-from date") return pick(reason, "Thiếu ngày bắt đầu có thể thuê.");
+      return reason;
+    }).join("; ");
+    const title = result.status === "pending"
+      ? pick("Submitted for admin review", "Đã gửi Admin xét duyệt")
+      : result.status === "needs-attention"
+        ? pick("Admin review required", "Cần Admin xem xét")
+        : result.status === "draft"
+          ? pick("Incomplete listing — edit and resubmit", "Tin thiếu thông tin — hãy chỉnh sửa và gửi lại")
+          : result.status === "rejected"
+            ? pick("Listing rejected by automated checks", "Tin bị từ chối khi kiểm duyệt tự động")
+            : pick("Listing status updated", "Đã cập nhật trạng thái tin");
+    toast({ title, description: reasons || listing.title, tone: result.status === "pending" ? "success" : "warning" });
   };
 
   const moveToDraft = async (listing: Listing) => {
@@ -99,6 +106,11 @@ function useListingActions() {
       description: t("landlord.availability.movedToDraftDesc", { title: listing.title }),
       tone: "info",
     });
+  };
+
+  const archive = async (listing: Listing) => {
+    await updateListing(listing.id,{status:"archived"});
+    toast({title:pick("Listing archived","Đã lưu trữ tin"),tone:"success"});
   };
 
   const reconfirm = async (listing: Listing) => {
@@ -113,27 +125,22 @@ function useListingActions() {
     });
   };
 
-  return { setAvailability, setRent, submitForVerification, togglePause, moveToDraft, reconfirm };
+  const safe = <A extends unknown[]>(fn: (...args:A)=>Promise<void>) => async (...args:A) => { try { await fn(...args); } catch (err) {toast({title:pick("Action failed", "Không thực hiện được"),description:err instanceof Error ? err.message : String(err),tone:"warning"});} };
+  return { setAvailability:safe(setAvailability), setRent:safe(setRent), togglePause:safe(togglePause), moveToDraft:safe(moveToDraft), archive:safe(archive), reconfirm:safe(reconfirm) };
 }
 
-type ActionMode = "price" | "availability" | "confirmVerification" | "confirmPause" | "confirmDraft" | null;
+type ActionMode = "price" | "availability" | "evidence" | "confirmPause" | "confirmDraft" | "confirmArchive" | null;
 
 function AvailabilityStamp({ listing }: { listing: Listing }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const status = availabilityStatus(listing);
-  if (listing.status !== "published") return null;
+  if (listing.status !== "published" && !listing.availabilityHiddenAt) return null;
+  if(status.state==="unknown") return <span className="text-xs text-muted-foreground">{pick("Not yet confirmed","Chưa xác nhận")}</span>;
   if (status.state === "overdue" || status.state === "hidden") {
     return (
       <span className="inline-flex h-8 items-center gap-1 rounded-md border border-warning/20 bg-warning/10 px-2.5 text-xs font-medium text-warning">
         {status.state === "hidden" ? t("landlord.availability.hiddenFromSearch") : t("landlord.availability.overdue")} ·{" "}
         {t("landlord.availability.days", { count: status.daysSinceConfirmed })}
-      </span>
-    );
-  }
-  if (status.state === "reminder") {
-    return (
-      <span className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-muted px-2.5 text-xs font-medium text-muted-foreground">
-        {t("landlord.availability.reconfirmIn", { count: Math.max(0, 14 - status.daysSinceConfirmed) })}
       </span>
     );
   }
@@ -145,12 +152,13 @@ function AvailabilityStamp({ listing }: { listing: Listing }) {
 }
 
 function RowActions({ listing }: { listing: Listing }) {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const [mode, setMode] = useState<ActionMode>(null);
   const [rentValue, setRentValue] = useState(String(listing.monthlyRent));
   const [confirmAvailability, setConfirmAvailability] = useState<Availability>(listing.availability);
-  const { setAvailability, setRent, submitForVerification, togglePause, moveToDraft, reconfirm } = useListingActions();
+  const { setAvailability, setRent, togglePause, moveToDraft, archive, reconfirm } = useListingActions();
 
+  const locked = listing.status === "hidden" || listing.status === "archived";
   const smallBtn =
     "inline-flex h-8 items-center justify-center rounded-md border border-input px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -158,20 +166,21 @@ function RowActions({ listing }: { listing: Listing }) {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <AvailabilityStamp listing={listing} />
-        <Link to={`/landlord/listings/edit/${listing.id}`} className={smallBtn}>
+        <button type="button" className={smallBtn} aria-expanded={mode === "evidence"} onClick={() => setMode(mode === "evidence" ? null : "evidence")}>{pick("Verification evidence", "Minh chứng xác minh")}</button>
+        {!locked && <Link to={`/landlord/listings/edit/${listing.id}`} className={smallBtn}>
           {t("landlord.availability.edit")}
-        </Link>
-        {listing.status === "published" ? (
+        </Link>}
+        {(listing.status === "published" || !!listing.availabilityHiddenAt) && listing.availability==="available" ? (
           <button type="button" className={smallBtn} onClick={() => void reconfirm(listing)}>
             {t("landlord.availability.reconfirm")}
           </button>
         ) : null}
-        {listing.moderation.reasons.length > 0 && (listing.status === "needs-attention" || listing.status === "rejected") ? (
+        {listing.moderation.reasons.length > 0 && (listing.status === "needs-attention" || listing.status === "rejected" || listing.status === "draft") ? (
           <span className="inline-flex h-8 items-center rounded-md border border-warning/20 bg-warning/10 px-2.5 text-xs font-medium text-warning">
             {t("landlord.availability.adminReview", { result: MODERATION_LABEL[listing.moderation.result] })}
           </span>
         ) : null}
-        <button
+        {!locked && <><button
           type="button"
           className={smallBtn}
           aria-expanded={mode === "availability"}
@@ -190,28 +199,35 @@ function RowActions({ listing }: { listing: Listing }) {
         >
           {t("landlord.availability.price")}
         </button>
-        {listing.verificationBadge ? null : (
-          <button type="button" className={smallBtn} onClick={() => setMode("confirmVerification")}>
-            {t("landlord.availability.submitForVerification")}
-          </button>
-        )}
-        <button
+        {(["published","draft","paused","rejected"].includes(listing.status)) && <button
           type="button"
           className={smallBtn}
           onClick={() => (listing.status === "published" ? setMode("confirmPause") : void togglePause(listing))}
         >
           {listing.status === "published" ? t("landlord.availability.pause") : t("landlord.availability.republish")}
-        </button>
+        </button>}
         {listing.status !== "draft" ? (
           <button
             type="button"
             className="inline-flex h-8 items-center justify-center rounded-md border border-destructive/30 px-2.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setMode("confirmDraft")}
           >
-            {t("landlord.availability.delete")}
+            {pick("Move to draft","Chuyển về bản nháp")}
           </button>
         ) : null}
+        <button type="button" className={smallBtn} onClick={()=>setMode("confirmArchive")}>{pick("Archive","Lưu trữ")}</button>
+        </>}
       </div>
+      {mode === "confirmArchive" && !locked && <div className="rounded-lg border p-3 text-sm"><p>{pick("Archive this listing? It will no longer be editable or visible publicly. Inquiry history is preserved.","Lưu trữ tin? Tin sẽ không hiển thị công khai hoặc chỉnh sửa được. Lịch sử yêu cầu thuê vẫn được giữ.")}</p><div className="mt-2 flex gap-2"><Button size="sm" variant="destructive" onClick={async()=>{await archive(listing);setMode(null);}}>{pick("Archive","Lưu trữ")}</Button><Button size="sm" variant="ghost" onClick={()=>setMode(null)}>{t("common.cancel")}</Button></div></div>}
+      {listing.moderation.manualReview?.reason && <p className="text-xs break-words">{pick("Admin decision reason:","Lý do quyết định của Admin:")} {listing.moderation.manualReview.reason}</p>}
+
+      {["draft", "needs-attention", "rejected"].includes(listing.status) && listing.moderation.reasons.length > 0 ? (
+        <div role="status" className="rounded-md border border-warning/20 bg-warning/10 p-2 text-xs text-foreground">
+          {listing.moderation.reasons.map((reason, index) => (
+            <p key={index}>{reason}</p>
+          ))}
+        </div>
+      ) : null}
 
       {mode === "availability" ? (
         <div className="rounded-lg border border-border bg-muted p-3">
@@ -250,6 +266,7 @@ function RowActions({ listing }: { listing: Listing }) {
             e.preventDefault();
             const value = Number(rentValue);
             if (!Number.isFinite(value) || value <= 0) return;
+            if(listing.verificationBadge && !window.confirm(pick("Changing price removes verification and requires fresh evidence. Continue?","Đổi giá sẽ thu hồi xác minh và yêu cầu minh chứng mới. Tiếp tục?"))) return;
             await setRent(listing, value);
             setMode(null);
           }}
@@ -273,24 +290,7 @@ function RowActions({ listing }: { listing: Listing }) {
         </form>
       ) : null}
 
-      {mode === "confirmVerification" ? (
-        <div className="rounded-lg border border-warning/20 bg-warning/10 p-3">
-          <p className="text-sm text-foreground">{t("landlord.availability.submitPrompt")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("landlord.availability.submitHint")}</p>
-          <div className="mt-2 flex gap-2">
-            <Button
-              size="sm"
-              onClick={async () => {
-                await submitForVerification(listing);
-                setMode(null);
-              }}
-            >
-              {t("landlord.availability.confirm")}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setMode(null)}>{t("common.cancel")}</Button>
-          </div>
-        </div>
-      ) : null}
+      {mode === "evidence" ? <EvidencePanel key={listing.id} listing={listing} /> : null}
 
       {mode === "confirmPause" ? (
         <div className="rounded-lg border border-warning/20 bg-warning/10 p-3">
@@ -335,16 +335,16 @@ function RowActions({ listing }: { listing: Listing }) {
 }
 
 export function PropertiesPage() {
-  const { t } = useI18n();
+  const { t, pick } = useI18n();
   const labels = useLabels();
-  const { listings } = useAppState();
+  const { listings, listingsLoading } = useAppState();
   const landlord = useLandlordIdentity();
   const [status, setStatus] = useState<"all" | ListingStatus>("all");
   const [query, setQuery] = useState("");
 
   const owned = listings.filter((l) => l.landlordId === landlord.id);
   const overdue = owned.filter(
-    (l) => l.status === "published" && ["overdue", "hidden"].includes(availabilityStatus(l).state),
+    (l) => (l.status === "published" && availabilityStatus(l).state === "overdue") || !!l.availabilityHiddenAt,
   );
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -367,6 +367,7 @@ export function PropertiesPage() {
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{(["published","pending","needs-attention","draft"] as const).map(s=><button type="button" key={s} onClick={()=>setStatus(status===s?"all":s)} aria-pressed={status===s} className={`rounded-xl border p-3 text-left focus-visible:ring-2 focus-visible:ring-ring ${status===s?"border-primary bg-[#E9EFE9] text-[#365844]":"border-border bg-card"}`}><span className="block text-2xl font-semibold tabular-nums">{listingsLoading?"—":owned.filter(l=>l.status===s).length}</span><span className="text-xs">{t(statusBadge[s].labelKey)}</span></button>)}</div>
       {overdue.length > 0 ? (
         <div role="status" className="flex items-start gap-3 rounded-xl border border-warning/20 bg-warning/10 p-4">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
@@ -393,6 +394,7 @@ export function PropertiesPage() {
             <option value="paused">{t("landlord.listingStatus.paused")}</option>
             <option value="draft">{t("landlord.properties.draftIncomplete")}</option>
             <option value="hidden">{t("landlord.listingStatus.hidden")}</option>
+            <option value="archived">{pick("Archived","Đã lưu trữ")}</option>
           </Select>
         </div>
         <div className="relative flex-1">
@@ -409,7 +411,7 @@ export function PropertiesPage() {
         <p className="text-xs text-muted-foreground">{t("landlord.properties.shown", { count: filtered.length })}</p>
       </div>
 
-      {filtered.length === 0 ? (
+      {listingsLoading && owned.length === 0 ? <p role="status" className="rounded-xl border border-border bg-card p-6 text-sm">{pick("Loading your properties…","Đang tải căn hộ của bạn…")}</p> : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
           <p className="text-sm font-medium text-foreground">{t("landlord.properties.noMatch")}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t("landlord.properties.noMatchHint")}</p>
@@ -435,6 +437,7 @@ export function PropertiesPage() {
                   )}
                   <span className="text-xs text-muted-foreground">{t("landlord.properties.views", { count: listing.views })}</span>
                 </div>
+                <ReviewSummary listing={listing}/>
                 <div className="mt-3">
                   <RowActions listing={listing} />
                 </div>
@@ -467,7 +470,7 @@ export function PropertiesPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-5 py-4 font-semibold text-link">{formatRent(listing.monthlyRent)}</td>
-                    <td className="px-5 py-4"><StatusBadge status={listing.status} /></td>
+                    <td className="px-5 py-4"><StatusBadge status={listing.status} /><ReviewSummary listing={listing}/></td>
                     <td className="px-5 py-4">
                       {listing.verificationBadge ? <VerificationBadge verified /> : (
                         <span className="text-xs text-muted-foreground">{t("landlord.properties.notSubmitted")}</span>
@@ -486,7 +489,7 @@ export function PropertiesPage() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        {t("landlord.properties.prototypeNote")}
+        {pick("Listing changes are saved on the server. Verification evidence is private. Promotion will be integrated later.","Thay đổi tin đăng được lưu trên máy chủ. Minh chứng xác minh được lưu riêng tư. Tin nổi bật sẽ được kết nối ở bước sau.")}
       </p>
     </div>
   );

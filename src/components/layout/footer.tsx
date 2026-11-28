@@ -33,7 +33,7 @@ const legalLinks: FooterLink[] = [
 ];
 
 export function Footer() {
-  const { t, lang } = useI18n();
+  const { t, lang, pick } = useI18n();
   const areaLabel = (id?: NeighborhoodId): string => {
     if (!id) return "";
     const map: Record<NeighborhoodId, string> = {
@@ -47,11 +47,11 @@ export function Footer() {
   const label = (l: FooterLink) => (l.key === "area" ? areaLabel(l.area) : t(l.key));
 
   return (
-    <footer className="border-t border-border bg-section-alt text-foreground">
+    <footer className="danest-public-footer border-t border-border bg-primary text-primary-foreground">
       <div className="mx-auto max-w-7xl px-4 py-14 md:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Logo />
+            <Logo variant="inverse" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">{t("footer.blurb")}</p>
             <div className="mt-5 flex items-center gap-2">
               <a
@@ -117,6 +117,7 @@ export function Footer() {
               <li className="pt-1 text-xs">{t("footer.hours")}</li>
             </ul>
             <ul className="mt-5 space-y-2">
+              <li><Link to="/stay-guide" className="text-sm text-muted-foreground hover:text-foreground">{pick("Rental & Stay Guide","Cẩm nang thuê nhà và lưu trú")}</Link></li>
               {legalLinks.map((l) => (
                 <li key={l.to + l.key}>
                   <Link to={l.to} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
@@ -129,7 +130,6 @@ export function Footer() {
         </div>
 
         <div className="mt-12 border-t border-border pt-6">
-          <p className="text-xs leading-relaxed text-muted-foreground">{t("footer.prototype")} {t("listing.demoDataNote")}</p>
           <div className="mt-4 flex flex-col items-start justify-between gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center">
             <p>{t("footer.copyright", { year: new Date().getFullYear() })}</p>
             <p>{t("footer.madeFor")}</p>

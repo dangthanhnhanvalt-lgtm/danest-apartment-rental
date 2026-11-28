@@ -5,7 +5,7 @@ interface RouterValue {
   path: string;
   query: URLSearchParams;
   hash: string;
-  navigate: (to: string, opts?: { replace?: boolean }) => void;
+  navigate: (to: string, opts?: { replace?: boolean; scroll?: boolean }) => void;
 }
 
 const RouterContext = createContext<RouterValue | null>(null);
@@ -27,14 +27,14 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  const navigate = useCallback((to: string, opts?: { replace?: boolean }) => {
+  const navigate = useCallback((to: string, opts?: { replace?: boolean; scroll?: boolean }) => {
     if (opts?.replace) {
       window.history.replaceState({}, "", to);
     } else {
       window.history.pushState({}, "", to);
     }
     setLocation(parseLocation());
-    if (!to.includes("#")) window.scrollTo({ top: 0, behavior: "instant" });
+    if (opts?.scroll !== false && !to.includes("#")) window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
 
   const value = useMemo(() => ({ ...location, navigate }), [location, navigate]);

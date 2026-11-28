@@ -10,8 +10,8 @@ const statusMeta: Record<VerificationStatus, { key: string; className: string; I
 };
 
 export function VerificationCard({ verification }: { verification: Verification }) {
-  const { t } = useI18n();
-  const allVerified = verification.checks.every((c) => c.status === "verified");
+  const { t, pick } = useI18n();
+  const allVerified = verification.checks.length > 0 && verification.checks.every((c) => c.status === "verified");
 
   return (
     <section aria-labelledby="verification-title" className="rounded-2xl border border-border bg-card p-5 md:p-6" style={{ boxShadow: "var(--shadow-surface)" }}>
@@ -47,15 +47,17 @@ export function VerificationCard({ verification }: { verification: Verification 
         {verification.checks.map((check) => {
           const meta = statusMeta[check.status];
           const Icon = meta.Icon;
+          const label = check.id === "listing-info" ? pick("Listing information", "Thông tin tin đăng") : check.id === "landlord-identity" ? pick("Landlord identity", "Định danh chủ nhà") : pick("Right to rent", "Quyền cho thuê");
+          const description = check.id === "listing-info" ? pick("Review of listing details.", "Kiểm tra thông tin căn hộ.") : check.id === "landlord-identity" ? pick("Review of identity evidence.", "Kiểm tra minh chứng định danh.") : pick("Review of rental-right evidence.", "Kiểm tra minh chứng quyền cho thuê.");
           return (
             <li key={check.id} className="flex gap-3">
               <Icon className={`mt-0.5 size-5 shrink-0 ${meta.className}`} aria-hidden="true" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <p className="text-base font-medium text-foreground">{check.label}</p>
+                  <p className="text-base font-medium text-foreground">{label}</p>
                   <span className={`text-xs font-semibold ${meta.className}`}>{t(meta.key)}</span>
                 </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">{check.description}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
                 {check.lastUpdated ? (
                   <p className="mt-0.5 text-xs text-muted-foreground">{t("verify.updated", { date: formatDate(check.lastUpdated) })}</p>
                 ) : null}

@@ -1,3 +1,4 @@
+import { resolveReport } from "~/api/backend/engagement";
 import { useMemo, useState } from "react";
 import { ChevronDown, Flag, ImageOff } from "lucide-react";
 import type { Report } from "~/types";
@@ -37,7 +38,7 @@ const FILTERS: { key: Filter; labelKey: string }[] = [
 export function ReportsPage() {
   const { t } = useI18n();
   const labels = useLabels();
-  const { reports, listings, decide, updateReport, loading } = useAdmin();
+  const { reports, listings, refresh, updateReport, loading, usersError } = useAdmin();
   const { toast } = useToast();
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -65,14 +66,14 @@ export function ReportsPage() {
   const saveNote = async (report: Report, status: "resolved" | "unresolved") => {
     setBusy(report.id);
     try {
-      await updateReport(report.id, { status, resolvedBy: "Admin (demo)", resolutionNote: note.trim() || t("admin.reports.defaultNote") });
+      await updateReport(report.id, { status, resolutionNote: note.trim() || t("admin.reports.defaultNote") });
       toast({
         title: status === "resolved" ? t("admin.reports.toastResolved") : t("admin.reports.toastUnresolved"),
         description: t("admin.reports.toastRecorded", { id: report.id }),
         tone: status === "resolved" ? "success" : "warning",
       });
       setNoteFor(null);
-    } finally {
+    } catch(e) { toast({title:"Action failed / Thao tác thất bại",description:e instanceof Error?e.message:String(e),tone:"warning"}); } finally {
       setBusy(null);
     }
   };
@@ -80,15 +81,18 @@ export function ReportsPage() {
   const hideListing = async (report: Report) => {
     setBusy(report.id);
     try {
-      await decide(report.listingId, "hidden", `Hidden after report ${report.id}: ${report.message.slice(0, 80)}`, "listing-hidden");
+      const reason=window.prompt("Reason for resolving and hiding / Lý do xử lý và ẩn tin");
+      if(!reason?.trim()) return;
+      await resolveReport(report.id,"resolved",reason.trim(),true);
+      await refresh();
       toast({ title: t("admin.reports.toastHidden"), description: t("admin.reports.toastHiddenDesc", { id: report.id }), tone: "warning" });
-    } finally {
+    } catch(e) { toast({title:"Action failed / Thao tác thất bại",description:e instanceof Error?e.message:String(e),tone:"warning"}); } finally {
       setBusy(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="danest-admin-reports space-y-6">
       <PageHeader
         title={t("admin.reports.title")}
         description={t("admin.reports.description")}
@@ -96,11 +100,11 @@ export function ReportsPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
-          { labelKey: "admin.reportStatus.open", value: counts.open },
-          { labelKey: "admin.reportStatus.resolved", value: counts.resolved },
-          { labelKey: "admin.reportStatus.unresolved", value: counts.unresolved },
+          { labelKey: "admin.reportStatus.open", value: counts.open, tone: "open" },
+          { labelKey: "admin.reportStatus.resolved", value: counts.resolved, tone: "resolved" },
+          { labelKey: "admin.reportStatus.unresolved", value: counts.unresolved, tone: "unresolved" },
         ].map((s) => (
-          <div key={s.labelKey} className="rounded-xl border border-border bg-card p-5" style={{ boxShadow: "var(--shadow-surface)" }}>
+          <div key={s.labelKey} className={`danest-report-stat danest-report-stat--${s.tone} rounded-2xl border p-5`}>
             <p className="text-xs text-muted-foreground">{t(s.labelKey)}</p>
             <p className="mt-1 text-2xl font-semibold text-foreground">{s.value}</p>
           </div>
@@ -115,18 +119,19 @@ export function ReportsPage() {
         ))}
       </div>
 
+      {usersError && <p role="alert" className="text-destructive">{usersError}</p>}
       {loading ? (
         <LoadingRows />
       ) : filtered.length === 0 ? (
         <EmptyState title={t("admin.reports.empty")} description={t("admin.reports.emptyDesc")} />
       ) : (
-        <ul className="space-y-4">
+        <ul className="danest-report-list space-y-4">
           {filtered.map((report) => {
             const listing = listingById(report.listingId);
             const isOpen = expanded === report.id;
             const noting = noteFor?.id === report.id ? noteFor.status : null;
             return (
-              <li key={report.id}>
+              <li key={report.id} className={`danest-report-item danest-report-item--${report.status}`}>
                 <Card>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
@@ -137,7 +142,7 @@ export function ReportsPage() {
                       </div>
                       <p className="mt-2 text-sm text-foreground">{report.message}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {report.reporterName} · {report.reporterEmail}
+                        {report.reporterName}{report.reporterEmail ? ` · ${report.reporterEmail}` : ""}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
@@ -148,7 +153,7 @@ export function ReportsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="danest-report-listing mt-4 flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       {listing ? (
                         <>
@@ -171,7 +176,7 @@ export function ReportsPage() {
                         </p>
                       )}
                     </div>
-                    {listing && listing.status !== "hidden" ? (
+                    {listing && listing.status === "published" ? (
                       <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => hideListing(report)} disabled={busy === report.id}>
                         {t("admin.reports.hideListing")}
                       </Button>

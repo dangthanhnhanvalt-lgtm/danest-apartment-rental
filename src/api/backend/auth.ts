@@ -1,6 +1,7 @@
 
 import { supabase } from "~/lib/supabase";
-import type { Session, User } from "~/types";
+import { sessionExpired } from "~/lib/session-idle";
+import type { AccountStatus, Session, User } from "~/types";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -10,6 +11,12 @@ function initials(name: string): string {
 }
 
 async function getAppSession(): Promise<Session | null> {
+  const local = await supabase.auth.getSession();
+  if (!local.data.session) return null;
+  if (sessionExpired(local.data.session)) {
+    await supabase.auth.signOut({scope:"local"});
+    return null;
+  }
   const { data, error } = await supabase.auth.getUser();
 
   if (error || !data.user) {
@@ -20,7 +27,7 @@ async function getAppSession(): Promise<Session | null> {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("full_name, role")
+    .select("full_name, role, account_status")
     .eq("id", authUser.id)
     .single();
 
@@ -31,6 +38,17 @@ async function getAppSession(): Promise<Session | null> {
     );
   }
 
+  if (!["tenant", "landlord", "admin"].includes(profile.role) ||
+      !["active", "pending", "rejected", "suspended"].includes(profile.account_status)) {
+    throw new Error("Invalid account profile.");
+  }
+  if (profile.account_status === "suspended" || profile.account_status === "rejected") {
+    await supabase.auth.signOut({scope:"local"});
+    throw new Error("Account suspended or rejected / Tài khoản bị khóa hoặc từ chối.");
+  }
+  if (profile.account_status !== "active" && profile.role !== "landlord") {
+    throw new Error("Account is not active / Tài khoản chưa hoạt động.");
+  }
   const name = profile.full_name || authUser.email?.split("@")[0] || "User";
 
   const user: User = {
@@ -39,13 +57,14 @@ async function getAppSession(): Promise<Session | null> {
     email: authUser.email ?? "",
     role: profile.role as User["role"],
     avatarInitials: initials(name),
+    accountStatus: profile.account_status as AccountStatus,
   };
 
   return { user, isDemo: false };
 }
 
 export const backendAuthRepository = {
-  async login(email: string, password: string): Promise<Session> {
+  async login(email: string, password: string, expectedRole?: "admin"): Promise<Session> {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -53,22 +72,31 @@ export const backendAuthRepository = {
 
     if (error) throw error;
 
-    const session = await getAppSession();
-    if (!session) throw new Error("Không thể khôi phục phiên đăng nhập.");
-
-    return session;
+    try {
+      const session = await getAppSession();
+      if (!session) throw new Error("Không thể khôi phục phiên đăng nhập.");
+      if (expectedRole && (session.user.role !== expectedRole || session.user.accountStatus !== "active")) {
+        throw new Error("Admin account required / Cần tài khoản quản trị đang hoạt động.");
+      }
+      return session;
+    } catch (error) {
+      await supabase.auth.signOut({ scope: "local" });
+      throw error;
+    }
   },
 
   async register(
     name: string,
     email: string,
     password: string,
-    role: User["role"]
-  ): Promise<Session> {
+    role: User["role"],
+    acceptedTerms: boolean
+  ): Promise<Session | null> {
     if (role !== "tenant" && role !== "landlord") {
       throw new Error("Vai trò đăng ký không hợp lệ.");
     }
 
+    if (!acceptedTerms) throw new Error("Terms and privacy consent required");
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -76,6 +104,8 @@ export const backendAuthRepository = {
         data: {
           full_name: name,
           role,
+          terms_accepted: true,
+          terms_version: "danest-pilot-2026-11",
         },
       },
     });
@@ -83,9 +113,7 @@ export const backendAuthRepository = {
     if (error) throw error;
 
     if (!data.session) {
-      throw new Error(
-        "Đăng ký đã được gửi. Vui lòng xác nhận email trước khi đăng nhập."
-      );
+      return null;
     }
 
     const session = await getAppSession();
@@ -95,7 +123,7 @@ export const backendAuthRepository = {
   },
 
   async logout(): Promise<void> {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({scope:"local"});
     if (error) throw error;
   },
 
