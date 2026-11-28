@@ -1,4 +1,4 @@
-import { Bell, Building2, CalendarDays, Check, ChevronDown, Languages, Heart, LayoutDashboard, LogOut, Menu, MessagesSquare, Plus, Settings, Sparkles, User, X } from "lucide-react";
+import { Bell, Building2, CalendarDays, Check, Languages, Heart, LayoutDashboard, LogOut, Menu, MessagesSquare, Plus, Settings, Sparkles, User, X } from "lucide-react";
 import {useNoticeCounts} from "~/api/backend/live-notices";
 import { useEffect, useRef, useState } from "react";
 import { Link, useRouter } from "~/lib/router";

@@ -214,7 +214,7 @@ export function ListingCard({
   );
 }
 
-export function SampleDataNote({ className }: { className?: string }) {
+export function SampleDataNote({ className: _className }: { className?: string }) {
   // Retain individual sample badges on listing cards; omit the repetitive site-wide note.
   return null;
 }

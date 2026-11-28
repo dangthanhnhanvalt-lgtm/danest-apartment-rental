@@ -141,7 +141,6 @@ function AdminShell({ path, onSignOut }: { path: string; onSignOut: () => void }
             to={item.to}
             onClick={() => setDrawer(false)}
             aria-current={active ? "page" : undefined}
-            title={sidebarCollapsed ? t(item.labelKey) : undefined}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               sidebarCollapsed && "lg:justify-center lg:px-2",
