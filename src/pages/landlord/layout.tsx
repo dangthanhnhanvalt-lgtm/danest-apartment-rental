@@ -1,5 +1,4 @@
 import {
-  Bell,
   BarChart3,
   CalendarDays,
   ChevronLeft,
@@ -10,7 +9,6 @@ import {
   Building2,
   Menu,
   X,
-  ExternalLink,
 } from "lucide-react";
 import {useNoticeCounts} from "~/api/backend/live-notices";
 import { useState } from "react";
@@ -98,30 +96,32 @@ function LandlordGate({ mode }: { mode: "guest" | "renter" }) {
   const navigate = useNavigate();
   const { t } = useI18n();
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-4 py-20 text-center">
-      <span className="inline-flex rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <main className="flex min-h-[calc(100vh-4rem)] w-full items-center justify-center bg-[#F5FBFF] px-4 py-16 text-center">
+      <div className="flex w-full max-w-xl flex-col items-center rounded-2xl border border-[#DCEAF0] bg-white px-6 py-12 shadow-[0_12px_40px_rgba(18,51,74,0.06)] sm:px-10">
+      <span className="inline-flex rounded-full border border-[#DCEAF0] bg-[#E8F7FD] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#087EBD]">
         {t("landlord.gate.eyebrow")}
       </span>
-      <h1 className="mt-4 font-heading text-3xl font-semibold text-foreground">
+      <h1 className="mt-4 font-heading text-3xl font-semibold text-[#12334A]">
         {mode === "guest" ? t("landlord.gate.guestTitle") : t("landlord.gate.renterTitle")}
       </h1>
-      <p className="mt-3 max-w-md text-base text-muted-foreground">
+      <p className="mt-3 max-w-md text-base text-[#557083]">
         {mode === "guest" ? t("landlord.gate.guestHint") : t("landlord.gate.renterHint")}
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Button onClick={() => navigate(mode === "guest" ? "/login" : "/register")}>
+        <Button className="bg-[#087EBD] text-white hover:bg-[#066A9E]" onClick={() => navigate(mode === "guest" ? "/login" : "/register")}>
           {mode === "guest" ? t("landlord.gate.login") : t("landlord.gate.register")}
         </Button>
-        <Button variant="outline" onClick={() => navigate("/search")}>
+        <Button variant="outline" className="border-[#DCEAF0] bg-white text-[#12334A] hover:bg-[#E8F7FD]" onClick={() => navigate("/search")}>
           {t("common.browseApartments")}
         </Button>
-        <Button variant="ghost" onClick={() => navigate("/")}>
+        <Button variant="ghost" className="text-[#087EBD] hover:bg-[#E8F7FD]" onClick={() => navigate("/")}>
           {t("common.backToHome")}
         </Button>
       </div>
-      <p className="mt-8 max-w-md text-xs text-muted-foreground">
+      <p className="mt-8 max-w-md text-xs text-[#557083]">
         {t("landlord.gate.demoNote")}
       </p>
+      </div>
     </main>
   );
 }
@@ -203,31 +203,18 @@ export function LandlordLayout({ path }: { path: string }) {
       ) : null}
 
       <div className="lg:pl-72">
-        <header className="danest-landlord-topbar sticky top-0 z-30 flex h-16 items-center gap-1.5 border-b border-border bg-card px-2 sm:gap-3 sm:px-4 md:px-6">
+        {/* Keep the navigation drawer accessible on small screens without a duplicate dashboard toolbar. */}
+        <div className="border-b border-[#DCEAF0] bg-white px-4 py-2 lg:hidden">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="flex size-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#12334A] hover:bg-[#E8F7FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087EBD]"
             aria-label={t("landlord.layout.openMenu")}
           >
             <Menu className="size-5" aria-hidden="true" />
+            {t("landlord.layout.openMenu")}
           </button>
-          <p className="min-w-0 truncate text-sm font-semibold text-foreground">{t("landlord.layout.title")}</p>
-          <span className="hidden rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex">
-            {t("landlord.layout.demoAccount")}
-          </span>
-          <div className="ml-auto flex items-center gap-2"><Link to="/notifications" className="relative flex size-10 items-center justify-center rounded-lg hover:bg-accent" aria-label={pick("Notifications","Thông báo")}><Bell className="size-5"/>{counts.notifications>0&&<span className="absolute right-0 top-0 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{counts.notifications}</span>}</Link>
-            <Link
-              to="/search"
-              className="inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              {t("landlord.layout.viewSite")} <ExternalLink className="size-3.5" aria-hidden="true" />
-            </Link>
-            <Button className="hidden sm:inline-flex" asChild>
-              <Link to="/landlord/listings/new">{t("landlord.layout.addListing")}</Link>
-            </Button>
-          </div>
-        </header>
+        </div>
 
         <main className="danest-landlord-content mx-auto w-full max-w-[1500px] p-4 md:p-6 lg:p-9"><div key={session.user.id}>{renderPage(path)}</div></main>
       </div>
