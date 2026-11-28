@@ -1,0 +1,22 @@
+/* DaNest AI Matching — scoped Bright Coastal Blue palette */
+.danest-match-page {
+  --background: #F5FBFF;
+  --foreground: #12334A;
+  --card: #FFFFFF;
+  --card-foreground: #12334A;
+  --primary: #087EBD;
+  --primary-foreground: #FFFFFF;
+  --primary-strong: #06658F;
+  --secondary: #E8F7FD;
+  --secondary-foreground: #12334A;
+  --muted: #E8F7FD;
+  --muted-foreground: #557083;
+  --accent: #E8F7FD;
+  --accent-foreground: #12334A;
+  --border: #DCEAF0;
+  --input: #DCEAF0;
+  --ring: #087EBD;
+  --link: #087EBD;
+}
+.danest-match-page button:focus-visible,
+.danest-match-page input:focus-visible { outline-color: #087EBD; }
